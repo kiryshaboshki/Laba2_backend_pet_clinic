@@ -1,28 +1,30 @@
 package app;
 
+import app.http.PetByIdHandler;
+import app.http.PetsHandler;
+import app.http.PingHandler;
+import app.service.PetService;
+import app.store.InMemoryStore;
 import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.net.InetSocketAddress;
-import java.nio.charset.StandardCharsets;
 
 public class Main {
 
     private static final int PORT = 8080;
 
     public static void main(String[] args) throws IOException {
+
+        InMemoryStore store = new InMemoryStore(); // хранилище, сервис
+        PetService petService = new PetService(store);
+
         HttpServer server = HttpServer.create(new InetSocketAddress(PORT), 0);
 
-        server.createContext("/ping", exchange -> {
-            String body = "{\"message\":\"pong\"}";
-            byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
-            exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
-            exchange.sendResponseHeaders(200, bytes.length);
-            try (OutputStream out = exchange.getResponseBody()) {
-                out.write(bytes);
-            }
-        });
+        server.createContext("/ping", new PingHandler());
+        server.createContext("/pets", new PetsHandler(petService));
+        server.createContext("/pets/", new PetByIdHandler(petService));
+
 
         server.start();
         System.out.println("Server started: http://localhost:" + PORT + "/ping");
