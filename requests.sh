@@ -89,3 +89,62 @@ curl -i "$BASE/appointments?status=SCHEDULED"
 
 echo "Ожидается: 200 OK (записи к конкретному врачу)"
 curl -i "$BASE/appointments?vetName=Dr.House"
+
+##тестс
+
+echo "Ожидается: 404 Not Found (запись несуществующего питомца)"
+curl -i -X POST $BASE/appointments \
+  -H "Content-Type: application/json" \
+  -d '{"petId":"999","vetName":"Dr.House","dateTime":"2026-12-01T10:00:00","durationMinutes":30}'
+
+echo "Ожидается: 400 Bad Request (дата в прошлом)"
+curl -i -X POST $BASE/appointments \
+  -H "Content-Type: application/json" \
+  -d '{"petId":"1","vetName":"Dr.House","dateTime":"2020-01-01T10:00:00","durationMinutes":30}'
+
+echo "Ожидается: 400 Bad Request (отрицательная длительность)"
+curl -i -X POST $BASE/appointments \
+  -H "Content-Type: application/json" \
+  -d '{"petId":"1","vetName":"Dr.House","dateTime":"2026-12-01T10:00:00","durationMinutes":-5}'
+
+echo "Ожидается: 404 Not Found (нет такой записи)"
+curl -i $BASE/appointments/999
+
+echo "Ожидается: 409 Conflict (повторное завершение приема)"
+curl -i -X POST $BASE/appointments/1/complete
+
+echo "Ожидается: 404 Not Found (завершение несуществующей записи)"
+curl -i -X POST $BASE/appointments/999/complete
+
+echo "Ожидается: 200 OK (создаем запись для теста обновления и удаления)"
+curl -i -X POST $BASE/appointments \
+  -H "Content-Type: application/json" \
+  -d '{"petId":"1","vetName":"Dr.Who","dateTime":"2026-12-02T11:00:00","durationMinutes":45}'
+
+echo "Ожидается: 200 OK (обновление записи)"
+curl -i -X PUT $BASE/appointments/2 \
+  -H "Content-Type: application/json" \
+  -d '{"petId":"1","vetName":"Dr.Who","dateTime":"2026-12-02T12:00:00","durationMinutes":60}'
+
+echo "Ожидается: 204 No Content (удаление записи)"
+curl -i -X DELETE $BASE/appointments/2
+
+echo "Ожидается: 405 Method Not Allowed (PATCH не поддерживается)"
+curl -i -X PATCH $BASE/pets/1
+
+echo "Ожидается: 405 Method Not Allowed (POST на /ping)"
+curl -i -X POST $BASE/ping
+
+echo "Ожидается: 404 Not Found (обновление несуществующего питомца)"
+curl -i -X PUT $BASE/pets/999 \
+  -H "Content-Type: application/json" \
+  -d '{"name":"X","type":"CAT","ownerName":"Y","vaccinated":false}'
+
+echo "Ожидается: 404 Not Found (повторное удаление питомца)"
+curl -i -X DELETE $BASE/pets/2
+
+echo "Ожидается: 400 Bad Request (неверный статус в фильтре)"
+curl -i "$BASE/appointments?status=INVALID"
+
+echo "Ожидается: 200 OK (пустой массив, нет врача Dr.Unknown)"
+curl -i "$BASE/appointments?vetName=Dr.Unknown"
