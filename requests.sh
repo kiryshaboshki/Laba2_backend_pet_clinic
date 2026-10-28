@@ -46,3 +46,34 @@ echo "Ожидается: 400 Bad Request"
 curl -i -X POST $BASE/pets \
   -H "Content-Type: application/json" \
   -d '{"name":"X","type":"COW","ownerName":"Y"}'
+
+echo "Ожидается: 201 Created (собака без прививки)"
+curl -i -X POST $BASE/pets \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Unvaxxed","type":"DOG","ownerName":"Bad","vaccinated":false}'
+
+echo "Ожидается: 409 Conflict (собаке нужна прививка)"
+curl -i -X POST $BASE/appointments \
+  -H "Content-Type: application/json" \
+  -d '{"petId":"3","vetName":"Dr.House","dateTime":"2026-12-01T10:00:00","durationMinutes":30}'
+
+echo "Ожидается: 201 Created (кошка без прививки)"
+curl -i -X POST $BASE/pets \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Murka","type":"CAT","ownerName":"Alice","vaccinated":false}'
+
+echo "Ожидается: 201 Created (запись кошки)"
+curl -i -X POST $BASE/appointments \
+  -H "Content-Type: application/json" \
+  -d '{"petId":"4","vetName":"Dr.House","dateTime":"2026-12-01T10:00:00","durationMinutes":30}'
+
+echo "Ожидается: 409 Conflict (врач занят)"
+curl -i -X POST $BASE/appointments \
+  -H "Content-Type: application/json" \
+  -d '{"petId":"1","vetName":"Dr.House","dateTime":"2026-12-01T10:00:00","durationMinutes":30}'
+
+echo "Ожидается: 200 OK (завершить прием)"
+curl -i -X POST $BASE/appointments/1/complete
+
+echo "Ожидается: 409 Conflict (нельзя отменить завершенный)"
+curl -i -X POST $BASE/appointments/1/cancel

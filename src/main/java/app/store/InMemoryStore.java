@@ -53,4 +53,7 @@ public class InMemoryStore {
         appointments.put(appointment.getId(), appointment);
         return appointment;
     }
+    public void deleteAppointment(String id) {
+        appointments.remove(id);
+    }
 }

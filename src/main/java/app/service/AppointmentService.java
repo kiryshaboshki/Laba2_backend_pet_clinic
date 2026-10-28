@@ -67,6 +67,10 @@ public class AppointmentService {
 
         return store.saveAppointment(existing);
     }
+    public void delete(String id) {
+        get(id); // проверяем, что запись существует (иначе 404)
+        store.deleteAppointment(id);
+    }
 
     public Appointment complete(String id) {
         Appointment appointment = get(id);
@@ -88,4 +92,5 @@ public class AppointmentService {
         appointment.setStatus(AppointmentStatus.CANCELLED);
         return store.saveAppointment(appointment);
     }
+
 }
