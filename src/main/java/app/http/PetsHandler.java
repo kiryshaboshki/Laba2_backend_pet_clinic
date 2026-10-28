@@ -21,9 +21,25 @@ public class PetsHandler implements HttpHandler {
         try {
             String method = exchange.getRequestMethod();
             if ("GET".equals(method)) {
-                List<Pet> pets = service.list(null, null);
-                byte[] body = Json.write(pets);
-                sendJson(exchange, 200, body);
+                String query = exchange.getRequestURI().getQuery();
+                String type = null;
+                Boolean vaccinated = null;
+
+                if (query != null) {
+                    for (String param : query.split("&")) {
+                        String[] pair = param.split("=");
+                        if (pair.length == 2) {
+                            if (pair[0].equals("type")) {
+                                type = pair[1];
+                            } else if (pair[0].equals("vaccinated")) {
+                                vaccinated = Boolean.parseBoolean(pair[1]);
+                            }
+                        }
+                    }
+                }
+
+                List<Pet> pets = service.list(type, vaccinated);
+                sendJson(exchange, 200, Json.write(pets));
             } else if ("POST".equals(method)) {
                 Pet input = Json.read(exchange.getRequestBody(), Pet.class);
                 Pet created = service.create(input);

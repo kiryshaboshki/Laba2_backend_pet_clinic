@@ -13,7 +13,11 @@ public class PetService {
     }
 
     public List<Pet> list(String type, Boolean vaccinated) {
-        return store.findAllPets();
+        List<Pet> all = store.findAllPets();
+        return all.stream()
+                .filter(p -> type == null || p.getType().name().equalsIgnoreCase(type))
+                .filter(p -> vaccinated == null || p.isVaccinated() == vaccinated)
+                .collect(java.util.stream.Collectors.toList());
     }
 
     public Pet get(String id) {

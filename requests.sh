@@ -77,3 +77,15 @@ curl -i -X POST $BASE/appointments/1/complete
 
 echo "Ожидается: 409 Conflict (нельзя отменить завершенный)"
 curl -i -X POST $BASE/appointments/1/cancel
+
+echo "Ожидается: 200 OK (только кошки)"
+curl -i "$BASE/pets?type=CAT"
+
+echo "Ожидается: 200 OK (только вакцинированные)"
+curl -i "$BASE/pets?vaccinated=true"
+
+echo "Ожидается: 200 OK (пустой массив, т.к. все приемы завершены)"
+curl -i "$BASE/appointments?status=SCHEDULED"
+
+echo "Ожидается: 200 OK (записи к конкретному врачу)"
+curl -i "$BASE/appointments?vetName=Dr.House"

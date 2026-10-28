@@ -1,12 +1,14 @@
 package app.http;
 
 import app.domain.Appointment;
+import app.domain.AppointmentStatus;
 import app.service.AppointmentService;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.List;
 
 public class AppointmentsHandler implements HttpHandler {
     private final AppointmentService service;
@@ -20,9 +22,28 @@ public class AppointmentsHandler implements HttpHandler {
         try {
             String method = exchange.getRequestMethod();
             if ("GET".equals(method)) {
-                //фильтры не передаем (null, null)
-                byte[] body = Json.write(service.list(null, null));
-                sendJson(exchange, 200, body);
+                String query = exchange.getRequestURI().getQuery();
+                String vetName = null;
+                AppointmentStatus status = null;
+
+                if (query != null) {
+                    for (String param : query.split("&")) {
+                        String[] pair = param.split("=");
+                        if (pair.length == 2) {
+                            if (pair[0].equals("vetName")) {
+                                vetName = pair[1];
+                            } else if (pair[0].equals("status")) {
+                                try {
+                                    status = AppointmentStatus.valueOf(pair[1].toUpperCase());
+                                } catch (IllegalArgumentException e) {
+                                    throw HttpError.badRequest("Invalid status. Use SCHEDULED, COMPLETED or CANCELLED");
+                                }
+                            }
+                        }
+                    }
+                }
+                List<Appointment> appointments = service.list(vetName, status);
+                sendJson(exchange, 200, Json.write(appointments));
             } else if ("POST".equals(method)) {
                 Appointment input = Json.read(exchange.getRequestBody(), Appointment.class);
                 Appointment created = service.create(input);

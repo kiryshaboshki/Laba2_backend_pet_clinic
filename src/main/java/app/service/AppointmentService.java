@@ -18,7 +18,11 @@ public class AppointmentService {
     }
 
     public List<Appointment> list(String vetName, AppointmentStatus status) {
-        return store.findAllAppointments();
+        List<Appointment> all = store.findAllAppointments();
+        return all.stream()
+                .filter(a -> vetName == null || a.getVetName().equalsIgnoreCase(vetName))
+                .filter(a -> status == null || a.getStatus() == status)
+                .collect(java.util.stream.Collectors.toList());
     }
 
     public Appointment get(String id) {
