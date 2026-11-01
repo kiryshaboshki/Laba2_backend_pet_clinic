@@ -19,6 +19,7 @@ public class InMemoryStore {
     }
 
     public Optional<Pet> findPetById(String id) {
+        if (id == null) return Optional.empty();
         return Optional.ofNullable(pets.get(id));
     }
 
@@ -26,7 +27,6 @@ public class InMemoryStore {
         if (pet.getId() == null) {
             pet.setId(String.valueOf(petIdCounter.getAndIncrement()));
         }
-        // Сохр в карту
         pets.put(pet.getId(), pet);
         return pet;
     }
@@ -43,6 +43,7 @@ public class InMemoryStore {
     }
 
     public Optional<Appointment> findAppointmentById(String id) {
+        if (id == null) return Optional.empty();
         return Optional.ofNullable(appointments.get(id));
     }
 

@@ -31,6 +31,38 @@ public class AppointmentService {
     }
 
     public Appointment create(Appointment appointment) {
+        validate(appointment, null);
+
+        appointment.setId(null);
+        appointment.setStatus(AppointmentStatus.SCHEDULED);
+        return store.saveAppointment(appointment);
+    }
+
+    public Appointment update(String id, Appointment updated) {
+        Appointment existing = get(id);
+        if (existing.getStatus() != AppointmentStatus.SCHEDULED) {
+            throw HttpError.conflict("Only SCHEDULED appointments can be updated");
+        }
+
+        validate(updated, id);
+
+        existing.setPetId(updated.getPetId());
+        existing.setVetName(updated.getVetName());
+        existing.setDateTime(updated.getDateTime());
+        existing.setDurationMinutes(updated.getDurationMinutes());
+
+        return store.saveAppointment(existing);
+    }
+
+    private void validate(Appointment appointment, String currentId) {
+        if (appointment.getVetName() == null || appointment.getVetName().isBlank()) {
+            throw HttpError.badRequest("Vet name must not be empty");
+        }
+
+        if (appointment.getPetId() == null || appointment.getPetId().isBlank()) {
+            throw HttpError.badRequest("Pet ID must not be empty");
+        }
+
         Pet pet = store.findPetById(appointment.getPetId())
                 .orElseThrow(() -> HttpError.notFound("Pet not found: " + appointment.getPetId()));
 
@@ -46,33 +78,25 @@ public class AppointmentService {
             throw HttpError.badRequest("Duration must be positive");
         }
 
+        LocalDateTime newStart = appointment.getDateTime();
+        LocalDateTime newEnd = newStart.plusMinutes(appointment.getDurationMinutes());
+
         for (Appointment existing : store.findAllAppointments()) {
             if (existing.getStatus() == AppointmentStatus.CANCELLED) continue;
+            if (existing.getId().equals(currentId)) continue;
 
-            if (existing.getVetName().equals(appointment.getVetName())) {
-                if (existing.getDateTime().equals(appointment.getDateTime())) {
+            if (existing.getVetName().equalsIgnoreCase(appointment.getVetName())) {
+                LocalDateTime existingStart = existing.getDateTime();
+                LocalDateTime existingEnd = existingStart.plusMinutes(existing.getDurationMinutes());
+
+                if (newStart.isBefore(existingEnd) && existingStart.isBefore(newEnd)) {
                     throw HttpError.conflict("Vet is already booked at this time");
                 }
             }
         }
-
-        appointment.setId(null);
-        appointment.setStatus(AppointmentStatus.SCHEDULED); //создание всегда SCHEDULED
-        return store.saveAppointment(appointment);
-    }
-
-    public Appointment update(String id, Appointment updated) {
-        Appointment existing = get(id);
-
-        existing.setPetId(updated.getPetId());
-        existing.setVetName(updated.getVetName());
-        existing.setDateTime(updated.getDateTime());
-        existing.setDurationMinutes(updated.getDurationMinutes());
-
-        return store.saveAppointment(existing);
     }
     public void delete(String id) {
-        get(id); // проверяем, что запись существует (иначе 404)
+        get(id);
         store.deleteAppointment(id);
     }
 

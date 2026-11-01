@@ -15,7 +15,7 @@ public class Main {
 
     public static void main(String[] args) throws IOException {
 
-        InMemoryStore store = new InMemoryStore(); // хранилище, сервис
+        InMemoryStore store = new InMemoryStore();
         PetService petService = new PetService(store);
         AppointmentService appointmentService = new AppointmentService(store);
 
@@ -32,5 +32,3 @@ public class Main {
     }
 }
 
-//  для коммита в новую ветку и пул рек
-// проверка работы коммитов

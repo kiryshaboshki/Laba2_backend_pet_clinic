@@ -1,5 +1,6 @@
 package app.service;
 
+import app.domain.AppointmentStatus;
 import app.domain.Pet;
 import app.http.HttpError;
 import app.store.InMemoryStore;
@@ -21,7 +22,6 @@ public class PetService {
     }
 
     public Pet get(String id) {
-        // Если питомца нет кинет404
         return store.findPetById(id)
                 .orElseThrow(() -> HttpError.notFound("Pet not found: " + id));
     }
@@ -33,8 +33,8 @@ public class PetService {
     }
 
     public Pet update(String id, Pet updated) {
-        Pet existing = get(id); // Если нет кинет 404
-        validate(updated);      // Если данные плохие кинет 400
+        Pet existing = get(id);
+        validate(updated);
 
         existing.setName(updated.getName());
         existing.setType(updated.getType());
@@ -45,7 +45,12 @@ public class PetService {
     }
 
     public void delete(String id) {
-        get(id); // Проверет, иначе 404
+        get(id);
+        boolean hasAppointments = store.findAllAppointments().stream()
+                .anyMatch(a -> id.equals(a.getPetId()) && a.getStatus() == AppointmentStatus.SCHEDULED);
+        if (hasAppointments) {
+            throw HttpError.conflict("Cannot delete pet with scheduled appointments");
+        }
         store.deletePet(id);
     }
 

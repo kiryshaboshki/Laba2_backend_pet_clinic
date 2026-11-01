@@ -11,6 +11,11 @@ public class PingHandler implements HttpHandler {
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
+        if (!"/ping".equals(exchange.getRequestURI().getPath())) {
+            exchange.sendResponseHeaders(404, -1);
+            exchange.close();
+            return;
+        }
         if (!"GET".equals(exchange.getRequestMethod())) {
             exchange.getResponseHeaders().set("Allow", "GET");
             exchange.sendResponseHeaders(405, -1);

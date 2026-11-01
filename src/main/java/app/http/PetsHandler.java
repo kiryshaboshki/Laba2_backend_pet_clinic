@@ -19,6 +19,10 @@ public class PetsHandler implements HttpHandler {
     @Override
     public void handle(HttpExchange exchange) throws IOException {
         try {
+            if (!"/pets".equals(exchange.getRequestURI().getPath())) {
+                exchange.sendResponseHeaders(404, -1);
+                return;
+            }
             String method = exchange.getRequestMethod();
             if ("GET".equals(method)) {
                 String query = exchange.getRequestURI().getQuery();
