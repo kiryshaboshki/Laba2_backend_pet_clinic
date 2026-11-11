@@ -184,9 +184,7 @@ class AppointmentServiceTest {
         assertEquals("Dr. Watson", watsonScheduled.get(0).getVetName());
     }
 
-    // -------------------------------------------------------------
-    // Interval Overlap and Boundary Conditions Tests
-    // -------------------------------------------------------------
+
 
     @Test
     @DisplayName("create() should throw ConflictException when booking during existing appointment (Professor's case: 10:00-11:00 and 10:30-11:00)")
@@ -304,9 +302,7 @@ class AppointmentServiceTest {
         assertThrows(ConflictException.class, () -> appointmentService.create(overlap));
     }
 
-    // -------------------------------------------------------------
-    // Lifecycle Transitions (complete, cancel, delete) and Updates Tests
-    // -------------------------------------------------------------
+
 
     @Test
     @DisplayName("complete() should change status from SCHEDULED to COMPLETED")
