@@ -4,29 +4,68 @@ import java.time.LocalDateTime;
 
 public class Appointment {
     private String id;
-    private String petId;             // Связь с питомцем
-    private String vetName;           // Имя врача
-    private LocalDateTime dateTime;   // Дата и время приема
-    private int durationMinutes;      // Длительность
-    private AppointmentStatus status; //(SCHEDULED, COMPLETED, CANCELLED)
+    private String petId;
+    private String vetName;
+    private LocalDateTime dateTime;
+    private int durationMinutes;
+    private AppointmentStatus status;
 
     public Appointment() {}
 
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
+    public Appointment(String id, String petId, String vetName, LocalDateTime dateTime, int durationMinutes, AppointmentStatus status) {
+        this.id = id;
+        this.petId = petId;
+        this.vetName = vetName;
+        this.dateTime = dateTime;
+        this.durationMinutes = durationMinutes;
+        this.status = status;
+    }
 
-    public String getPetId() { return petId; }
-    public void setPetId(String petId) { this.petId = petId; }
+    public String getId() {
+        return id;
+    }
 
-    public String getVetName() { return vetName; }
-    public void setVetName(String vetName) { this.vetName = vetName; }
+    public void setId(String id) {
+        this.id = id;
+    }
 
-    public LocalDateTime getDateTime() { return dateTime; }
-    public void setDateTime(LocalDateTime dateTime) { this.dateTime = dateTime; }
+    public String getPetId() {
+        return petId;
+    }
 
-    public int getDurationMinutes() { return durationMinutes; }
-    public void setDurationMinutes(int durationMinutes) { this.durationMinutes = durationMinutes; }
+    public void setPetId(String petId) {
+        this.petId = petId;
+    }
 
-    public AppointmentStatus getStatus() { return status; }
-    public void setStatus(AppointmentStatus status) { this.status = status; }
+    public String getVetName() {
+        return vetName;
+    }
+
+    public void setVetName(String vetName) {
+        this.vetName = vetName;
+    }
+
+    public LocalDateTime getDateTime() {
+        return dateTime;
+    }
+
+    public void setDateTime(LocalDateTime dateTime) {
+        this.dateTime = dateTime;
+    }
+
+    public int getDurationMinutes() {
+        return durationMinutes;
+    }
+
+    public void setDurationMinutes(int durationMinutes) {
+        this.durationMinutes = durationMinutes;
+    }
+
+    public AppointmentStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(AppointmentStatus status) {
+        this.status = status;
+    }
 }
