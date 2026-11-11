@@ -23,8 +23,6 @@ import static org.junit.jupiter.api.Assertions.*;
 @DisplayName("Unit tests for AppointmentService - Creation and Validation")
 class AppointmentServiceTest {
 
-    private AppointmentRepository appointmentRepository;
-    private PetRepository petRepository;
     private AppointmentService appointmentService;
 
     private Pet vaccinatedDog;
@@ -33,8 +31,8 @@ class AppointmentServiceTest {
 
     @BeforeEach
     void setUp() {
-        appointmentRepository = new InMemoryAppointmentRepository();
-        petRepository = new InMemoryPetRepository();
+        AppointmentRepository appointmentRepository = new InMemoryAppointmentRepository();
+        PetRepository petRepository = new InMemoryPetRepository();
         appointmentService = new AppointmentService(appointmentRepository, petRepository);
 
         vaccinatedDog = petRepository.save(new Pet(null, "Rex", PetType.DOG, "Oleg", true));
@@ -167,9 +165,9 @@ class AppointmentServiceTest {
         LocalDateTime t2 = LocalDateTime.now().plusDays(1).withHour(11).withMinute(0);
         LocalDateTime t3 = LocalDateTime.now().plusDays(1).withHour(12).withMinute(0);
 
-        Appointment a1 = appointmentService.create(new Appointment(null, vaccinatedDog.getId(), "Dr. House", t1, 30, null));
-        Appointment a2 = appointmentService.create(new Appointment(null, unvaccinatedCat.getId(), "Dr. House", t2, 30, null));
-        Appointment a3 = appointmentService.create(new Appointment(null, vaccinatedDog.getId(), "Dr. Watson", t3, 30, null));
+        appointmentService.create(new Appointment(null, vaccinatedDog.getId(), "Dr. House", t1, 30, null));
+        appointmentService.create(new Appointment(null, unvaccinatedCat.getId(), "Dr. House", t2, 30, null));
+        appointmentService.create(new Appointment(null, vaccinatedDog.getId(), "Dr. Watson", t3, 30, null));
 
         assertEquals(3, appointmentService.list(null, null).size());
 
@@ -181,7 +179,7 @@ class AppointmentServiceTest {
 
         List<Appointment> watsonScheduled = appointmentService.list("Dr. Watson", AppointmentStatus.SCHEDULED);
         assertEquals(1, watsonScheduled.size());
-        assertEquals("Dr. Watson", watsonScheduled.get(0).getVetName());
+        assertEquals("Dr. Watson", watsonScheduled.getFirst().getVetName());
     }
 
 
@@ -420,7 +418,7 @@ class AppointmentServiceTest {
         LocalDateTime t1 = LocalDateTime.now().plusDays(2).withHour(10).withMinute(0);
         LocalDateTime t2 = LocalDateTime.now().plusDays(2).withHour(11).withMinute(0);
 
-        Appointment a1 = appointmentService.create(new Appointment(null, vaccinatedDog.getId(), "Dr. House", t1, 60, null));
+        appointmentService.create(new Appointment(null, vaccinatedDog.getId(), "Dr. House", t1, 60, null));
         Appointment a2 = appointmentService.create(new Appointment(null, unvaccinatedCat.getId(), "Dr. House", t2, 60, null));
 
         // Try to update a2 to overlap with a1 (10:30 - 11:30)

@@ -23,13 +23,12 @@ import static org.junit.jupiter.api.Assertions.*;
 @DisplayName("Unit tests for PetService (POJO without Spring Context)")
 class PetServiceTest {
 
-    private PetRepository petRepository;
     private AppointmentRepository appointmentRepository;
     private PetService petService;
 
     @BeforeEach
     void setUp() {
-        petRepository = new InMemoryPetRepository();
+        PetRepository petRepository = new InMemoryPetRepository();
         appointmentRepository = new InMemoryAppointmentRepository();
         petService = new PetService(petRepository, appointmentRepository);
     }
@@ -114,7 +113,7 @@ class PetServiceTest {
 
         List<Pet> vaccinatedDogs = petService.list("dog", true);
         assertEquals(1, vaccinatedDogs.size());
-        assertEquals("Rex", vaccinatedDogs.get(0).getName());
+        assertEquals("Rex", vaccinatedDogs.getFirst().getName());
     }
 
     @Test

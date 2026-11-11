@@ -9,6 +9,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/pets")
+@SuppressWarnings("unused")
 public class PetController {
 
     private final PetService petService;

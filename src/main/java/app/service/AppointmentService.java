@@ -3,7 +3,6 @@ package app.service;
 import app.domain.Appointment;
 import app.domain.AppointmentStatus;
 import app.domain.Pet;
-import app.domain.PetType;
 import app.exception.BadRequestException;
 import app.exception.ConflictException;
 import app.exception.NotFoundException;
@@ -104,7 +103,7 @@ public class AppointmentService {
         Pet pet = petRepository.findById(appointment.getPetId())
                 .orElseThrow(() -> new NotFoundException("Pet not found: " + appointment.getPetId()));
 
-        if (pet.getType() == PetType.DOG && !pet.isVaccinated()) {
+        if (pet.getType().isVaccinationRequired() && !pet.isVaccinated()) {
             throw new ConflictException("Dog must be vaccinated before appointment");
         }
 

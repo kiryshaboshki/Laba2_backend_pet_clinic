@@ -3,7 +3,6 @@ package app.service;
 import app.domain.Appointment;
 import app.domain.AppointmentStatus;
 import app.domain.Pet;
-import app.domain.PetType;
 import app.exception.BadRequestException;
 import app.exception.ConflictException;
 import app.exception.NotFoundException;
@@ -47,7 +46,7 @@ public class PetService {
         Pet existing = get(id);
         validate(updated);
 
-        boolean willBeUnvaccinatedDog = updated.getType() == PetType.DOG && !updated.isVaccinated();
+        boolean willBeUnvaccinatedDog = updated.getType().isVaccinationRequired() && !updated.isVaccinated();
         if (willBeUnvaccinatedDog) {
             boolean hasScheduledAppointments = appointmentRepository.findAll().stream()
                     .anyMatch(a -> id.equals(a.getPetId()) && a.getStatus() == AppointmentStatus.SCHEDULED);

@@ -11,6 +11,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/appointments")
+@SuppressWarnings("unused")
 public class AppointmentController {
 
     private final AppointmentService appointmentService;
