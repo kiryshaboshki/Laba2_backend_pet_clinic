@@ -1,7 +1,9 @@
 package app.service;
 
+import app.domain.Appointment;
 import app.domain.AppointmentStatus;
 import app.domain.Pet;
+import app.domain.PetType;
 import app.exception.BadRequestException;
 import app.exception.ConflictException;
 import app.exception.NotFoundException;
@@ -52,6 +54,15 @@ public class PetService {
         Pet existing = get(id);
         validate(updated);
 
+        boolean willBeUnvaccinatedDog = updated.getType() == PetType.DOG && !updated.isVaccinated();
+        if (willBeUnvaccinatedDog) {
+            boolean hasScheduledAppointments = appointmentRepository.findAll().stream()
+                    .anyMatch(a -> id.equals(a.getPetId()) && a.getStatus() == AppointmentStatus.SCHEDULED);
+            if (hasScheduledAppointments) {
+                throw new ConflictException("Dog with scheduled appointments must remain vaccinated");
+            }
+        }
+
         existing.setName(updated.getName());
         existing.setType(updated.getType());
         existing.setOwnerName(updated.getOwnerName());
@@ -62,11 +73,19 @@ public class PetService {
 
     public void delete(String id) {
         get(id);
-        boolean hasAppointments = appointmentRepository.findAll().stream()
+        boolean hasScheduled = appointmentRepository.findAll().stream()
                 .anyMatch(a -> id.equals(a.getPetId()) && a.getStatus() == AppointmentStatus.SCHEDULED);
-        if (hasAppointments) {
+        if (hasScheduled) {
             throw new ConflictException("Cannot delete pet with scheduled appointments");
         }
+
+        List<Appointment> historical = appointmentRepository.findAll().stream()
+                .filter(a -> id.equals(a.getPetId()))
+                .toList();
+        for (Appointment appointment : historical) {
+            appointmentRepository.deleteById(appointment.getId());
+        }
+
         petRepository.deleteById(id);
     }
 
