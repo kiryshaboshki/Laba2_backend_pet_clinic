@@ -183,4 +183,124 @@ class AppointmentServiceTest {
         assertEquals(1, watsonScheduled.size());
         assertEquals("Dr. Watson", watsonScheduled.get(0).getVetName());
     }
+
+    // -------------------------------------------------------------
+    // Interval Overlap and Boundary Conditions Tests
+    // -------------------------------------------------------------
+
+    @Test
+    @DisplayName("create() should throw ConflictException when booking during existing appointment (Professor's case: 10:00-11:00 and 10:30-11:00)")
+    void shouldThrowConflictWhenBookingInsideExistingInterval() {
+        LocalDateTime baseTime = LocalDateTime.now().plusDays(2).withHour(10).withMinute(0).withSecond(0).withNano(0);
+        // Dr. House booked 10:00 - 11:00 (60 min)
+        appointmentService.create(new Appointment(null, vaccinatedDog.getId(), "Dr. House", baseTime, 60, null));
+
+        // Attempt to book Dr. House at 10:30 for 30 min (ends at 11:00)
+        LocalDateTime overlapTime = baseTime.plusMinutes(30);
+        Appointment overlapping = new Appointment(null, unvaccinatedCat.getId(), "Dr. House", overlapTime, 30, null);
+
+        ConflictException ex = assertThrows(ConflictException.class, () -> appointmentService.create(overlapping));
+        assertEquals("Vet is already booked at this time", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("create() should throw ConflictException when new appointment starts before and ends inside existing")
+    void shouldThrowConflictWhenStartingBeforeAndEndingInside() {
+        LocalDateTime baseTime = LocalDateTime.now().plusDays(2).withHour(12).withMinute(0).withSecond(0).withNano(0);
+        // Existing: 12:00 - 13:00 (60 min)
+        appointmentService.create(new Appointment(null, vaccinatedDog.getId(), "Dr. House", baseTime, 60, null));
+
+        // New: 11:30 - 12:15 (ends at 12:15, inside 12:00-13:00)
+        LocalDateTime earlyStart = baseTime.minusMinutes(30);
+        Appointment overlapping = new Appointment(null, unvaccinatedCat.getId(), "Dr. House", earlyStart, 45, null);
+
+        ConflictException ex = assertThrows(ConflictException.class, () -> appointmentService.create(overlapping));
+        assertEquals("Vet is already booked at this time", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("create() should throw ConflictException when new appointment starts inside and ends after existing")
+    void shouldThrowConflictWhenStartingInsideAndEndingAfter() {
+        LocalDateTime baseTime = LocalDateTime.now().plusDays(2).withHour(14).withMinute(0).withSecond(0).withNano(0);
+        // Existing: 14:00 - 15:00 (60 min)
+        appointmentService.create(new Appointment(null, vaccinatedDog.getId(), "Dr. House", baseTime, 60, null));
+
+        // New: 14:45 - 15:30 (starts at 14:45, inside 14:00-15:00)
+        LocalDateTime startInside = baseTime.plusMinutes(45);
+        Appointment overlapping = new Appointment(null, unvaccinatedCat.getId(), "Dr. House", startInside, 45, null);
+
+        ConflictException ex = assertThrows(ConflictException.class, () -> appointmentService.create(overlapping));
+        assertEquals("Vet is already booked at this time", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("create() should throw ConflictException when new appointment completely envelops existing appointment")
+    void shouldThrowConflictWhenEnvelopingExistingAppointment() {
+        LocalDateTime baseTime = LocalDateTime.now().plusDays(2).withHour(16).withMinute(0).withSecond(0).withNano(0);
+        // Existing: 16:15 - 16:45 (30 min)
+        appointmentService.create(new Appointment(null, vaccinatedDog.getId(), "Dr. House", baseTime.plusMinutes(15), 30, null));
+
+        // New: 16:00 - 17:00 (60 min, envelops 16:15-16:45)
+        Appointment enveloping = new Appointment(null, unvaccinatedCat.getId(), "Dr. House", baseTime, 60, null);
+
+        ConflictException ex = assertThrows(ConflictException.class, () -> appointmentService.create(enveloping));
+        assertEquals("Vet is already booked at this time", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("create() should throw ConflictException on 1-minute overlap boundary")
+    void shouldThrowConflictOnOneMinuteOverlap() {
+        LocalDateTime baseTime = LocalDateTime.now().plusDays(2).withHour(18).withMinute(0).withSecond(0).withNano(0);
+        // Existing: 18:00 - 19:00 (60 min)
+        appointmentService.create(new Appointment(null, vaccinatedDog.getId(), "Dr. House", baseTime, 60, null));
+
+        // New starts at 18:59 for 30 min (overlaps by 1 minute with 18:00-19:00)
+        Appointment overlapOneMin = new Appointment(null, unvaccinatedCat.getId(), "Dr. House", baseTime.plusMinutes(59), 30, null);
+
+        ConflictException ex = assertThrows(ConflictException.class, () -> appointmentService.create(overlapOneMin));
+        assertEquals("Vet is already booked at this time", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("create() should succeed for back-to-back appointments (0-minute gap)")
+    void shouldSucceedForBackToBackAppointments() {
+        LocalDateTime baseTime = LocalDateTime.now().plusDays(3).withHour(10).withMinute(0).withSecond(0).withNano(0);
+        // Appointment 1: 10:00 - 10:30 (30 min)
+        Appointment a1 = appointmentService.create(new Appointment(null, vaccinatedDog.getId(), "Dr. House", baseTime, 30, null));
+        assertNotNull(a1.getId());
+
+        // Appointment 2: 10:30 - 11:00 (exactly at the end of Appointment 1)
+        Appointment a2 = appointmentService.create(new Appointment(null, unvaccinatedCat.getId(), "Dr. House", baseTime.plusMinutes(30), 30, null));
+        assertNotNull(a2.getId());
+
+        // Appointment 3: 09:30 - 10:00 (ends exactly at the start of Appointment 1)
+        Appointment a3 = appointmentService.create(new Appointment(null, vaccinatedDog.getId(), "Dr. House", baseTime.minusMinutes(30), 30, null));
+        assertNotNull(a3.getId());
+    }
+
+    @Test
+    @DisplayName("create() should succeed for overlapping time if vet is different")
+    void shouldSucceedForDifferentVetsAtSameTime() {
+        LocalDateTime baseTime = LocalDateTime.now().plusDays(3).withHour(14).withMinute(0).withSecond(0).withNano(0);
+        // Dr. House: 14:00 - 15:00
+        Appointment house = appointmentService.create(new Appointment(null, vaccinatedDog.getId(), "Dr. House", baseTime, 60, null));
+        assertNotNull(house.getId());
+
+        // Dr. Watson: 14:00 - 15:00 (same time, different doctor)
+        Appointment watson = appointmentService.create(new Appointment(null, unvaccinatedCat.getId(), "Dr. Watson", baseTime, 60, null));
+        assertNotNull(watson.getId());
+    }
+
+    @Test
+    @DisplayName("create() should check vetName case-insensitively for overlaps")
+    void shouldCheckVetNameCaseInsensitivelyForOverlap() {
+        LocalDateTime baseTime = LocalDateTime.now().plusDays(3).withHour(16).withMinute(0).withSecond(0).withNano(0);
+        // Booked with "dr. dolittle"
+        appointmentService.create(new Appointment(null, vaccinatedDog.getId(), "dr. dolittle", baseTime, 45, null));
+
+        // Overlapping booked with "DR. DOLITTLE"
+        Appointment overlap = new Appointment(null, unvaccinatedCat.getId(), "DR. DOLITTLE", baseTime.plusMinutes(15), 30, null);
+
+        assertThrows(ConflictException.class, () -> appointmentService.create(overlap));
+    }
 }
