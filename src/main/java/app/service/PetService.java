@@ -8,10 +8,7 @@ import app.exception.BadRequestException;
 import app.exception.ConflictException;
 import app.exception.NotFoundException;
 import app.repository.AppointmentRepository;
-import app.repository.InMemoryAppointmentRepository;
-import app.repository.InMemoryPetRepository;
 import app.repository.PetRepository;
-import app.store.InMemoryStore;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -26,10 +23,6 @@ public class PetService {
     public PetService(PetRepository petRepository, AppointmentRepository appointmentRepository) {
         this.petRepository = petRepository;
         this.appointmentRepository = appointmentRepository;
-    }
-
-    public PetService(InMemoryStore store) {
-        this(new InMemoryPetRepository(), new InMemoryAppointmentRepository());
     }
 
     public List<Pet> list(String type, Boolean vaccinated) {

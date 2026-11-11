@@ -8,10 +8,7 @@ import app.exception.BadRequestException;
 import app.exception.ConflictException;
 import app.exception.NotFoundException;
 import app.repository.AppointmentRepository;
-import app.repository.InMemoryAppointmentRepository;
-import app.repository.InMemoryPetRepository;
 import app.repository.PetRepository;
-import app.store.InMemoryStore;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -27,10 +24,6 @@ public class AppointmentService {
     public AppointmentService(AppointmentRepository appointmentRepository, PetRepository petRepository) {
         this.appointmentRepository = appointmentRepository;
         this.petRepository = petRepository;
-    }
-
-    public AppointmentService(InMemoryStore store) {
-        this(new InMemoryAppointmentRepository(), new InMemoryPetRepository());
     }
 
     public List<Appointment> list(String vetName, AppointmentStatus status) {
