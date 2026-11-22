@@ -1,17 +1,9 @@
 package app.repository;
 
 import app.domain.Pet;
+import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.util.List;
-import java.util.Optional;
+import java.util.UUID;
 
-public interface PetRepository {
-
-    List<Pet> findAll();
-
-    Optional<Pet> findById(String id);
-
-    Pet save(Pet pet);
-
-    void deleteById(String id);
+public interface PetRepository extends JpaRepository<Pet, UUID> {
 }

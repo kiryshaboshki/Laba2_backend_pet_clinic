@@ -1,17 +1,15 @@
 package app.repository;
 
 import app.domain.Appointment;
+import app.domain.AppointmentStatus;
+import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.UUID;
 
-public interface AppointmentRepository {
+public interface AppointmentRepository extends JpaRepository<Appointment, UUID> {
 
-    List<Appointment> findAll();
+    List<Appointment> findByPet_Id(UUID petId);
 
-    Optional<Appointment> findById(String id);
-
-    Appointment save(Appointment appointment);
-
-    void deleteById(String id);
+    boolean existsByPet_IdAndStatus(UUID petId, AppointmentStatus status);
 }

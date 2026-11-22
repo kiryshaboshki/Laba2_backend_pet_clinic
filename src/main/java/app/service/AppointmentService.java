@@ -9,10 +9,11 @@ import app.exception.NotFoundException;
 import app.repository.AppointmentRepository;
 import app.repository.PetRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.UUID;
 
 @Service
 public class AppointmentService {
@@ -29,31 +30,32 @@ public class AppointmentService {
         return appointmentRepository.findAll().stream()
                 .filter(a -> vetName == null || a.getVetName().equalsIgnoreCase(vetName))
                 .filter(a -> status == null || a.getStatus() == status)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public Appointment get(String id) {
-        return appointmentRepository.findById(id)
+        return appointmentRepository.findById(parseId(id))
                 .orElseThrow(() -> new NotFoundException("Appointment not found: " + id));
     }
 
+    @Transactional
     public Appointment create(Appointment appointment) {
         validate(appointment, null);
-
         appointment.setId(null);
         appointment.setStatus(AppointmentStatus.SCHEDULED);
         return appointmentRepository.save(appointment);
     }
 
+    @Transactional
     public Appointment update(String id, Appointment updated) {
         Appointment existing = get(id);
         if (existing.getStatus() != AppointmentStatus.SCHEDULED) {
             throw new ConflictException("Only SCHEDULED appointments can be updated");
         }
 
-        validate(updated, id);
+        validate(updated, existing.getId());
 
-        existing.setPetId(updated.getPetId());
+        existing.setPet(updated.getPet());
         existing.setVetName(updated.getVetName());
         existing.setDateTime(updated.getDateTime());
         existing.setDurationMinutes(updated.getDurationMinutes());
@@ -61,11 +63,13 @@ public class AppointmentService {
         return appointmentRepository.save(existing);
     }
 
+    @Transactional
     public void delete(String id) {
-        get(id);
-        appointmentRepository.deleteById(id);
+        Appointment appointment = get(id);
+        appointmentRepository.delete(appointment);
     }
 
+    @Transactional
     public Appointment complete(String id) {
         Appointment appointment = get(id);
         if (appointment.getStatus() != AppointmentStatus.SCHEDULED) {
@@ -75,6 +79,7 @@ public class AppointmentService {
         return appointmentRepository.save(appointment);
     }
 
+    @Transactional
     public Appointment cancel(String id) {
         Appointment appointment = get(id);
         if (appointment.getStatus() == AppointmentStatus.COMPLETED) {
@@ -87,7 +92,7 @@ public class AppointmentService {
         return appointmentRepository.save(appointment);
     }
 
-    private void validate(Appointment appointment, String currentId) {
+    private void validate(Appointment appointment, UUID currentId) {
         if (appointment == null) {
             throw new BadRequestException("Appointment data must not be null");
         }
@@ -96,12 +101,12 @@ public class AppointmentService {
             throw new BadRequestException("Vet name must not be empty");
         }
 
-        if (appointment.getPetId() == null || appointment.getPetId().isBlank()) {
+        if (appointment.getPet() == null || appointment.getPet().getId() == null) {
             throw new BadRequestException("Pet ID must not be empty");
         }
 
-        Pet pet = petRepository.findById(appointment.getPetId())
-                .orElseThrow(() -> new NotFoundException("Pet not found: " + appointment.getPetId()));
+        Pet pet = petRepository.findById(appointment.getPet().getId())
+                .orElseThrow(() -> new NotFoundException("Pet not found: " + appointment.getPet().getId()));
 
         if (pet.getType().isVaccinationRequired() && !pet.isVaccinated()) {
             throw new ConflictException("Dog must be vaccinated before appointment");
@@ -119,21 +124,24 @@ public class AppointmentService {
         LocalDateTime newEnd = newStart.plusMinutes(appointment.getDurationMinutes());
 
         for (Appointment existing : appointmentRepository.findAll()) {
-            if (existing.getStatus() == AppointmentStatus.CANCELLED) {
-                continue;
-            }
-            if (existing.getId() != null && existing.getId().equals(currentId)) {
-                continue;
-            }
+            if (existing.getStatus() == AppointmentStatus.CANCELLED) continue;
+            if (existing.getId() != null && existing.getId().equals(currentId)) continue;
 
             if (existing.getVetName().equalsIgnoreCase(appointment.getVetName())) {
                 LocalDateTime existingStart = existing.getDateTime();
                 LocalDateTime existingEnd = existingStart.plusMinutes(existing.getDurationMinutes());
-
                 if (newStart.isBefore(existingEnd) && existingStart.isBefore(newEnd)) {
                     throw new ConflictException("Vet is already booked at this time");
                 }
             }
+        }
+    }
+
+    private UUID parseId(String id) {
+        try {
+            return UUID.fromString(id);
+        } catch (IllegalArgumentException e) {
+            throw new NotFoundException("Appointment not found: " + id);
         }
     }
 }

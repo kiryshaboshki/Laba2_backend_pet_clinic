@@ -9,9 +9,10 @@ import app.exception.NotFoundException;
 import app.repository.AppointmentRepository;
 import app.repository.PetRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.UUID;
 
 @Service
 public class PetService {
@@ -28,29 +29,30 @@ public class PetService {
         return petRepository.findAll().stream()
                 .filter(p -> type == null || p.getType().name().equalsIgnoreCase(type))
                 .filter(p -> vaccinated == null || p.isVaccinated() == vaccinated)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public Pet get(String id) {
-        return petRepository.findById(id)
+        return petRepository.findById(parseId(id))
                 .orElseThrow(() -> new NotFoundException("Pet not found: " + id));
     }
 
+    @Transactional
     public Pet create(Pet pet) {
         validate(pet);
         pet.setId(null);
         return petRepository.save(pet);
     }
 
+    @Transactional
     public Pet update(String id, Pet updated) {
         Pet existing = get(id);
         validate(updated);
 
         boolean willBeUnvaccinatedDog = updated.getType().isVaccinationRequired() && !updated.isVaccinated();
         if (willBeUnvaccinatedDog) {
-            boolean hasScheduledAppointments = appointmentRepository.findAll().stream()
-                    .anyMatch(a -> id.equals(a.getPetId()) && a.getStatus() == AppointmentStatus.SCHEDULED);
-            if (hasScheduledAppointments) {
+            boolean hasScheduled = appointmentRepository.existsByPet_IdAndStatus(existing.getId(), AppointmentStatus.SCHEDULED);
+            if (hasScheduled) {
                 throw new ConflictException("Dog with scheduled appointments must remain vaccinated");
             }
         }
@@ -63,22 +65,18 @@ public class PetService {
         return petRepository.save(existing);
     }
 
+    @Transactional
     public void delete(String id) {
-        get(id);
-        boolean hasScheduled = appointmentRepository.findAll().stream()
-                .anyMatch(a -> id.equals(a.getPetId()) && a.getStatus() == AppointmentStatus.SCHEDULED);
+        Pet pet = get(id);
+        boolean hasScheduled = appointmentRepository.existsByPet_IdAndStatus(pet.getId(), AppointmentStatus.SCHEDULED);
         if (hasScheduled) {
             throw new ConflictException("Cannot delete pet with scheduled appointments");
         }
 
-        List<Appointment> historical = appointmentRepository.findAll().stream()
-                .filter(a -> id.equals(a.getPetId()))
-                .toList();
-        for (Appointment appointment : historical) {
-            appointmentRepository.deleteById(appointment.getId());
-        }
+        List<Appointment> historical = appointmentRepository.findByPet_Id(pet.getId());
+        appointmentRepository.deleteAll(historical);
 
-        petRepository.deleteById(id);
+        petRepository.delete(pet);
     }
 
     private void validate(Pet pet) {
@@ -93,6 +91,14 @@ public class PetService {
         }
         if (pet.getOwnerName() == null || pet.getOwnerName().isBlank()) {
             throw new BadRequestException("Owner name must not be empty");
+        }
+    }
+
+    private UUID parseId(String id) {
+        try {
+            return UUID.fromString(id);
+        } catch (IllegalArgumentException e) {
+            throw new NotFoundException("Pet not found: " + id);
         }
     }
 }
