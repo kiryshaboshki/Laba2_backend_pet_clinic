@@ -56,7 +56,7 @@ public class InMemoryPetRepository {
                         yield null;
                     }
                     case "count" -> (long) storage.size();
-                    case "existsById" -> storage.containsKey(args[0]);
+                    case "existsById" -> storage.containsKey((UUID) args[0]);
                     case "hashCode" -> System.identityHashCode(proxy);
                     case "equals" -> proxy == args[0];
                     case "toString" -> "InMemoryPetRepository@" + Integer.toHexString(System.identityHashCode(proxy));

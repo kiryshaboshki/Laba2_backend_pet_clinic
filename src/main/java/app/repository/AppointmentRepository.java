@@ -5,6 +5,7 @@ import app.domain.AppointmentStatus;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.lang.NonNull;
 
 import java.util.List;
 import java.util.Optional;
@@ -17,10 +18,12 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
     boolean existsByPet_IdAndStatus(UUID petId, AppointmentStatus status);
 
     @Override
+    @NonNull
     @EntityGraph(attributePaths = {"pet"})
-    Optional<Appointment> findById(UUID id);
+    Optional<Appointment> findById(@NonNull UUID id);
 
     @Override
+    @NonNull
     @EntityGraph(attributePaths = {"pet"})
     List<Appointment> findAll();
 

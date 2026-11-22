@@ -70,7 +70,7 @@ public class InMemoryAppointmentRepository {
                                 .anyMatch(a -> a.getPet() != null && petId.equals(a.getPet().getId()) && a.getStatus() == status);
                     }
                     case "count" -> (long) storage.size();
-                    case "existsById" -> storage.containsKey(args[0]);
+                    case "existsById" -> storage.containsKey((UUID) args[0]);
                     case "hashCode" -> System.identityHashCode(proxy);
                     case "equals" -> proxy == args[0];
                     case "toString" -> "InMemoryAppointmentRepository@" + Integer.toHexString(System.identityHashCode(proxy));
