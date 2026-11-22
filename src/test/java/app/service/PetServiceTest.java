@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -28,8 +29,8 @@ class PetServiceTest {
 
     @BeforeEach
     void setUp() {
-        PetRepository petRepository = new InMemoryPetRepository();
-        appointmentRepository = new InMemoryAppointmentRepository();
+        PetRepository petRepository = InMemoryPetRepository.create();
+        appointmentRepository = InMemoryAppointmentRepository.create();
         petService = new PetService(petRepository, appointmentRepository);
     }
 
@@ -45,7 +46,7 @@ class PetServiceTest {
         assertEquals("Ivan", created.getOwnerName());
         assertFalse(created.isVaccinated());
 
-        Pet fromRepo = petService.get(created.getId());
+        Pet fromRepo = petService.get(created.getId().toString());
         assertEquals("Barsik", fromRepo.getName());
     }
 
@@ -87,10 +88,10 @@ class PetServiceTest {
     @DisplayName("get() should return pet when exists and throw NotFoundException when absent")
     void shouldGetPetOrThrowNotFound() {
         Pet created = petService.create(new Pet(null, "Rex", PetType.DOG, "Oleg", true));
-        Pet found = petService.get(created.getId());
+        Pet found = petService.get(created.getId().toString());
         assertEquals("Rex", found.getName());
 
-        assertThrows(NotFoundException.class, () -> petService.get("9999"));
+        assertThrows(NotFoundException.class, () -> petService.get(UUID.randomUUID().toString()));
     }
 
     @Test
@@ -122,13 +123,13 @@ class PetServiceTest {
         Pet created = petService.create(new Pet(null, "Rex", PetType.DOG, "Oleg", false));
 
         Pet updatedData = new Pet(null, "Rex Senior", PetType.DOG, "Oleg", true);
-        Pet updated = petService.update(created.getId(), updatedData);
+        Pet updated = petService.update(created.getId().toString(), updatedData);
 
         assertEquals(created.getId(), updated.getId());
         assertEquals("Rex Senior", updated.getName());
         assertTrue(updated.isVaccinated());
 
-        Pet reloaded = petService.get(created.getId());
+        Pet reloaded = petService.get(created.getId().toString());
         assertEquals("Rex Senior", reloaded.getName());
         assertTrue(reloaded.isVaccinated());
     }
@@ -137,7 +138,7 @@ class PetServiceTest {
     @DisplayName("update() should throw NotFoundException when pet does not exist")
     void shouldThrowNotFoundOnUpdateMissingPet() {
         Pet updateData = new Pet(null, "Ghost", PetType.CAT, "Unknown", false);
-        assertThrows(NotFoundException.class, () -> petService.update("404", updateData));
+        assertThrows(NotFoundException.class, () -> petService.update(UUID.randomUUID().toString(), updateData));
     }
 
     @Test
@@ -145,23 +146,23 @@ class PetServiceTest {
     void shouldPreventUnvaccinatingDogWithScheduledAppointments() {
         Pet dog = petService.create(new Pet(null, "Rex", PetType.DOG, "Oleg", true));
 
-        Appointment scheduled = new Appointment(null, dog.getId(), "Dr. House",
+        Appointment scheduled = new Appointment(null, dog, "Dr. House",
                 LocalDateTime.now().plusDays(1), 30, AppointmentStatus.SCHEDULED);
         appointmentRepository.save(scheduled);
 
         Pet attemptToUnvaccinate = new Pet(null, "Rex", PetType.DOG, "Oleg", false);
         ConflictException ex = assertThrows(ConflictException.class,
-                () -> petService.update(dog.getId(), attemptToUnvaccinate));
+                () -> petService.update(dog.getId().toString(), attemptToUnvaccinate));
         assertEquals("Dog with scheduled appointments must remain vaccinated", ex.getMessage());
 
         Pet attemptToChangeToUnvaccinatedCatToDog = petService.create(new Pet(null, "Tom", PetType.CAT, "Anna", false));
-        Appointment catAppointment = new Appointment(null, attemptToChangeToUnvaccinatedCatToDog.getId(), "Dr. House",
+        Appointment catAppointment = new Appointment(null, attemptToChangeToUnvaccinatedCatToDog, "Dr. House",
                 LocalDateTime.now().plusDays(2), 30, AppointmentStatus.SCHEDULED);
         appointmentRepository.save(catAppointment);
 
         Pet changeCatToUnvaccinatedDog = new Pet(null, "Tom", PetType.DOG, "Anna", false);
         assertThrows(ConflictException.class,
-                () -> petService.update(attemptToChangeToUnvaccinatedCatToDog.getId(), changeCatToUnvaccinatedDog));
+                () -> petService.update(attemptToChangeToUnvaccinatedCatToDog.getId().toString(), changeCatToUnvaccinatedDog));
     }
 
     @Test
@@ -170,7 +171,7 @@ class PetServiceTest {
         Pet dog = petService.create(new Pet(null, "Rex", PetType.DOG, "Oleg", true));
 
         Pet unvaccinate = new Pet(null, "Rex", PetType.DOG, "Oleg", false);
-        Pet result = petService.update(dog.getId(), unvaccinate);
+        Pet result = petService.update(dog.getId().toString(), unvaccinate);
         assertFalse(result.isVaccinated());
     }
 
@@ -178,7 +179,7 @@ class PetServiceTest {
     @DisplayName("delete() should remove pet when there are no appointments")
     void shouldDeletePetSuccessfully() {
         Pet created = petService.create(new Pet(null, "Barsik", PetType.CAT, "Ivan", false));
-        String petId = created.getId();
+        String petId = created.getId().toString();
 
         petService.delete(petId);
 
@@ -188,7 +189,7 @@ class PetServiceTest {
     @Test
     @DisplayName("delete() should throw NotFoundException if pet does not exist")
     void shouldThrowNotFoundOnDeleteMissingPet() {
-        assertThrows(NotFoundException.class, () -> petService.delete("missing-id"));
+        assertThrows(NotFoundException.class, () -> petService.delete(UUID.randomUUID().toString()));
     }
 
     @Test
@@ -196,14 +197,14 @@ class PetServiceTest {
     void shouldThrowConflictWhenDeletingPetWithScheduledAppointments() {
         Pet pet = petService.create(new Pet(null, "Rex", PetType.DOG, "Oleg", true));
 
-        Appointment scheduled = new Appointment(null, pet.getId(), "Dr. House",
+        Appointment scheduled = new Appointment(null, pet, "Dr. House",
                 LocalDateTime.now().plusDays(1), 30, AppointmentStatus.SCHEDULED);
         appointmentRepository.save(scheduled);
 
-        ConflictException ex = assertThrows(ConflictException.class, () -> petService.delete(pet.getId()));
+        ConflictException ex = assertThrows(ConflictException.class, () -> petService.delete(pet.getId().toString()));
         assertEquals("Cannot delete pet with scheduled appointments", ex.getMessage());
 
-        assertNotNull(petService.get(pet.getId()));
+        assertNotNull(petService.get(pet.getId().toString()));
     }
 
     @Test
@@ -211,16 +212,16 @@ class PetServiceTest {
     void shouldCascadeDeleteHistoricalAppointmentsWhenPetIsDeleted() {
         Pet pet = petService.create(new Pet(null, "Murka", PetType.CAT, "Anna", true));
 
-        Appointment completed = new Appointment(null, pet.getId(), "Dr. House",
+        Appointment completed = new Appointment(null, pet, "Dr. House",
                 LocalDateTime.now().minusDays(1), 30, AppointmentStatus.COMPLETED);
-        Appointment cancelled = new Appointment(null, pet.getId(), "Dr. House",
+        Appointment cancelled = new Appointment(null, pet, "Dr. House",
                 LocalDateTime.now().plusDays(2), 30, AppointmentStatus.CANCELLED);
         Appointment savedCompleted = appointmentRepository.save(completed);
         Appointment savedCancelled = appointmentRepository.save(cancelled);
 
-        petService.delete(pet.getId());
+        petService.delete(pet.getId().toString());
 
-        assertThrows(NotFoundException.class, () -> petService.get(pet.getId()));
+        assertThrows(NotFoundException.class, () -> petService.get(pet.getId().toString()));
         assertTrue(appointmentRepository.findById(savedCompleted.getId()).isEmpty(),
                 "Completed appointment should be cascade removed upon pet deletion");
         assertTrue(appointmentRepository.findById(savedCancelled.getId()).isEmpty(),

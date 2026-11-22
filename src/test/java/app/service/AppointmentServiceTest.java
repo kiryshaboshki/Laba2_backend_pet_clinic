@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -31,8 +32,8 @@ class AppointmentServiceTest {
 
     @BeforeEach
     void setUp() {
-        AppointmentRepository appointmentRepository = new InMemoryAppointmentRepository();
-        PetRepository petRepository = new InMemoryPetRepository();
+        AppointmentRepository appointmentRepository = InMemoryAppointmentRepository.create();
+        PetRepository petRepository = InMemoryPetRepository.create();
         appointmentService = new AppointmentService(appointmentRepository, petRepository);
 
         vaccinatedDog = petRepository.save(new Pet(null, "Rex", PetType.DOG, "Oleg", true));
@@ -44,12 +45,12 @@ class AppointmentServiceTest {
     @DisplayName("create() should successfully schedule appointment for vaccinated dog")
     void shouldCreateAppointmentForVaccinatedDog() {
         LocalDateTime futureTime = LocalDateTime.now().plusDays(1).withHour(10).withMinute(0).withSecond(0).withNano(0);
-        Appointment appointment = new Appointment(null, vaccinatedDog.getId(), "Dr. Aibolit", futureTime, 30, null);
+        Appointment appointment = new Appointment(null, vaccinatedDog, "Dr. Aibolit", futureTime, 30, null);
 
         Appointment created = appointmentService.create(appointment);
 
         assertNotNull(created.getId());
-        assertEquals(vaccinatedDog.getId(), created.getPetId());
+        assertEquals(vaccinatedDog.getId(), created.getPet().getId());
         assertEquals("Dr. Aibolit", created.getVetName());
         assertEquals(futureTime, created.getDateTime());
         assertEquals(30, created.getDurationMinutes());
@@ -60,20 +61,20 @@ class AppointmentServiceTest {
     @DisplayName("create() should successfully schedule appointment for unvaccinated cat")
     void shouldCreateAppointmentForUnvaccinatedCat() {
         LocalDateTime futureTime = LocalDateTime.now().plusDays(1).withHour(11).withMinute(0).withSecond(0).withNano(0);
-        Appointment appointment = new Appointment(null, unvaccinatedCat.getId(), "Dr. Aibolit", futureTime, 45, null);
+        Appointment appointment = new Appointment(null, unvaccinatedCat, "Dr. Aibolit", futureTime, 45, null);
 
         Appointment created = appointmentService.create(appointment);
 
         assertNotNull(created.getId());
         assertEquals(AppointmentStatus.SCHEDULED, created.getStatus());
-        assertEquals(unvaccinatedCat.getId(), created.getPetId());
+        assertEquals(unvaccinatedCat.getId(), created.getPet().getId());
     }
 
     @Test
     @DisplayName("create() should throw ConflictException for unvaccinated dog")
     void shouldThrowConflictForUnvaccinatedDog() {
         LocalDateTime futureTime = LocalDateTime.now().plusDays(1).withHour(12).withMinute(0);
-        Appointment appointment = new Appointment(null, unvaccinatedDog.getId(), "Dr. Aibolit", futureTime, 30, null);
+        Appointment appointment = new Appointment(null, unvaccinatedDog, "Dr. Aibolit", futureTime, 30, null);
 
         ConflictException ex = assertThrows(ConflictException.class, () -> appointmentService.create(appointment));
         assertEquals("Dog must be vaccinated before appointment", ex.getMessage());
@@ -83,7 +84,9 @@ class AppointmentServiceTest {
     @DisplayName("create() should throw NotFoundException when pet does not exist")
     void shouldThrowNotFoundForNonExistingPet() {
         LocalDateTime futureTime = LocalDateTime.now().plusDays(1).withHour(12).withMinute(0);
-        Appointment appointment = new Appointment(null, "non-existent-pet-id", "Dr. Aibolit", futureTime, 30, null);
+        Pet nonExistentPet = new Pet();
+        nonExistentPet.setId(UUID.randomUUID());
+        Appointment appointment = new Appointment(null, nonExistentPet, "Dr. Aibolit", futureTime, 30, null);
 
         NotFoundException ex = assertThrows(NotFoundException.class, () -> appointmentService.create(appointment));
         assertTrue(ex.getMessage().contains("Pet not found"));
@@ -101,33 +104,34 @@ class AppointmentServiceTest {
     void shouldThrowWhenVetNameIsBlank() {
         LocalDateTime futureTime = LocalDateTime.now().plusDays(1).withHour(10).withMinute(0);
 
-        Appointment nullVet = new Appointment(null, vaccinatedDog.getId(), null, futureTime, 30, null);
+        Appointment nullVet = new Appointment(null, vaccinatedDog, null, futureTime, 30, null);
         assertThrows(BadRequestException.class, () -> appointmentService.create(nullVet));
 
-        Appointment blankVet = new Appointment(null, vaccinatedDog.getId(), "   ", futureTime, 30, null);
+        Appointment blankVet = new Appointment(null, vaccinatedDog, "   ", futureTime, 30, null);
         assertThrows(BadRequestException.class, () -> appointmentService.create(blankVet));
     }
 
     @Test
-    @DisplayName("create() should throw BadRequestException when petId is blank or null")
-    void shouldThrowWhenPetIdIsBlank() {
+    @DisplayName("create() should throw BadRequestException when pet is null or has null id")
+    void shouldThrowWhenPetIsInvalid() {
         LocalDateTime futureTime = LocalDateTime.now().plusDays(1).withHour(10).withMinute(0);
 
         Appointment nullPet = new Appointment(null, null, "Dr. Aibolit", futureTime, 30, null);
         assertThrows(BadRequestException.class, () -> appointmentService.create(nullPet));
 
-        Appointment blankPet = new Appointment(null, "   ", "Dr. Aibolit", futureTime, 30, null);
-        assertThrows(BadRequestException.class, () -> appointmentService.create(blankPet));
+        Pet petWithoutId = new Pet(null, "Rex", PetType.DOG, "Oleg", true);
+        Appointment petNoId = new Appointment(null, petWithoutId, "Dr. Aibolit", futureTime, 30, null);
+        assertThrows(BadRequestException.class, () -> appointmentService.create(petNoId));
     }
 
     @Test
     @DisplayName("create() should throw BadRequestException when date is null or in the past")
     void shouldThrowWhenDateTimeIsInPastOrNull() {
-        Appointment nullDate = new Appointment(null, vaccinatedDog.getId(), "Dr. Aibolit", null, 30, null);
+        Appointment nullDate = new Appointment(null, vaccinatedDog, "Dr. Aibolit", null, 30, null);
         assertThrows(BadRequestException.class, () -> appointmentService.create(nullDate));
 
         LocalDateTime pastTime = LocalDateTime.now().minusHours(2);
-        Appointment pastAppointment = new Appointment(null, vaccinatedDog.getId(), "Dr. Aibolit", pastTime, 30, null);
+        Appointment pastAppointment = new Appointment(null, vaccinatedDog, "Dr. Aibolit", pastTime, 30, null);
         BadRequestException ex = assertThrows(BadRequestException.class, () -> appointmentService.create(pastAppointment));
         assertEquals("Appointment date must be in the future", ex.getMessage());
     }
@@ -137,10 +141,10 @@ class AppointmentServiceTest {
     void shouldThrowWhenDurationIsNotPositive() {
         LocalDateTime futureTime = LocalDateTime.now().plusDays(1).withHour(10).withMinute(0);
 
-        Appointment zeroDuration = new Appointment(null, vaccinatedDog.getId(), "Dr. Aibolit", futureTime, 0, null);
+        Appointment zeroDuration = new Appointment(null, vaccinatedDog, "Dr. Aibolit", futureTime, 0, null);
         assertThrows(BadRequestException.class, () -> appointmentService.create(zeroDuration));
 
-        Appointment negativeDuration = new Appointment(null, vaccinatedDog.getId(), "Dr. Aibolit", futureTime, -15, null);
+        Appointment negativeDuration = new Appointment(null, vaccinatedDog, "Dr. Aibolit", futureTime, -15, null);
         assertThrows(BadRequestException.class, () -> appointmentService.create(negativeDuration));
     }
 
@@ -149,13 +153,13 @@ class AppointmentServiceTest {
     void shouldGetAppointmentOrThrowNotFound() {
         LocalDateTime futureTime = LocalDateTime.now().plusDays(1).withHour(10).withMinute(0);
         Appointment created = appointmentService.create(
-                new Appointment(null, vaccinatedDog.getId(), "Dr. Aibolit", futureTime, 30, null));
+                new Appointment(null, vaccinatedDog, "Dr. Aibolit", futureTime, 30, null));
 
-        Appointment found = appointmentService.get(created.getId());
+        Appointment found = appointmentService.get(created.getId().toString());
         assertEquals(created.getId(), found.getId());
         assertEquals("Dr. Aibolit", found.getVetName());
 
-        assertThrows(NotFoundException.class, () -> appointmentService.get("missing-id"));
+        assertThrows(NotFoundException.class, () -> appointmentService.get(UUID.randomUUID().toString()));
     }
 
     @Test
@@ -165,9 +169,9 @@ class AppointmentServiceTest {
         LocalDateTime t2 = LocalDateTime.now().plusDays(1).withHour(11).withMinute(0);
         LocalDateTime t3 = LocalDateTime.now().plusDays(1).withHour(12).withMinute(0);
 
-        appointmentService.create(new Appointment(null, vaccinatedDog.getId(), "Dr. House", t1, 30, null));
-        appointmentService.create(new Appointment(null, unvaccinatedCat.getId(), "Dr. House", t2, 30, null));
-        appointmentService.create(new Appointment(null, vaccinatedDog.getId(), "Dr. Watson", t3, 30, null));
+        appointmentService.create(new Appointment(null, vaccinatedDog, "Dr. House", t1, 30, null));
+        appointmentService.create(new Appointment(null, unvaccinatedCat, "Dr. House", t2, 30, null));
+        appointmentService.create(new Appointment(null, vaccinatedDog, "Dr. Watson", t3, 30, null));
 
         assertEquals(3, appointmentService.list(null, null).size());
 
@@ -182,18 +186,16 @@ class AppointmentServiceTest {
         assertEquals("Dr. Watson", watsonScheduled.getFirst().getVetName());
     }
 
-
-
     @Test
     @DisplayName("create() should throw ConflictException when booking during existing appointment (Professor's case: 10:00-11:00 and 10:30-11:00)")
     void shouldThrowConflictWhenBookingInsideExistingInterval() {
         LocalDateTime baseTime = LocalDateTime.now().plusDays(2).withHour(10).withMinute(0).withSecond(0).withNano(0);
         // Dr. House booked 10:00 - 11:00 (60 min)
-        appointmentService.create(new Appointment(null, vaccinatedDog.getId(), "Dr. House", baseTime, 60, null));
+        appointmentService.create(new Appointment(null, vaccinatedDog, "Dr. House", baseTime, 60, null));
 
         // Attempt to book Dr. House at 10:30 for 30 min (ends at 11:00)
         LocalDateTime overlapTime = baseTime.plusMinutes(30);
-        Appointment overlapping = new Appointment(null, unvaccinatedCat.getId(), "Dr. House", overlapTime, 30, null);
+        Appointment overlapping = new Appointment(null, unvaccinatedCat, "Dr. House", overlapTime, 30, null);
 
         ConflictException ex = assertThrows(ConflictException.class, () -> appointmentService.create(overlapping));
         assertEquals("Vet is already booked at this time", ex.getMessage());
@@ -204,11 +206,11 @@ class AppointmentServiceTest {
     void shouldThrowConflictWhenStartingBeforeAndEndingInside() {
         LocalDateTime baseTime = LocalDateTime.now().plusDays(2).withHour(12).withMinute(0).withSecond(0).withNano(0);
         // Existing: 12:00 - 13:00 (60 min)
-        appointmentService.create(new Appointment(null, vaccinatedDog.getId(), "Dr. House", baseTime, 60, null));
+        appointmentService.create(new Appointment(null, vaccinatedDog, "Dr. House", baseTime, 60, null));
 
         // New: 11:30 - 12:15 (ends at 12:15, inside 12:00-13:00)
         LocalDateTime earlyStart = baseTime.minusMinutes(30);
-        Appointment overlapping = new Appointment(null, unvaccinatedCat.getId(), "Dr. House", earlyStart, 45, null);
+        Appointment overlapping = new Appointment(null, unvaccinatedCat, "Dr. House", earlyStart, 45, null);
 
         ConflictException ex = assertThrows(ConflictException.class, () -> appointmentService.create(overlapping));
         assertEquals("Vet is already booked at this time", ex.getMessage());
@@ -219,11 +221,11 @@ class AppointmentServiceTest {
     void shouldThrowConflictWhenStartingInsideAndEndingAfter() {
         LocalDateTime baseTime = LocalDateTime.now().plusDays(2).withHour(14).withMinute(0).withSecond(0).withNano(0);
         // Existing: 14:00 - 15:00 (60 min)
-        appointmentService.create(new Appointment(null, vaccinatedDog.getId(), "Dr. House", baseTime, 60, null));
+        appointmentService.create(new Appointment(null, vaccinatedDog, "Dr. House", baseTime, 60, null));
 
         // New: 14:45 - 15:30 (starts at 14:45, inside 14:00-15:00)
         LocalDateTime startInside = baseTime.plusMinutes(45);
-        Appointment overlapping = new Appointment(null, unvaccinatedCat.getId(), "Dr. House", startInside, 45, null);
+        Appointment overlapping = new Appointment(null, unvaccinatedCat, "Dr. House", startInside, 45, null);
 
         ConflictException ex = assertThrows(ConflictException.class, () -> appointmentService.create(overlapping));
         assertEquals("Vet is already booked at this time", ex.getMessage());
@@ -234,10 +236,10 @@ class AppointmentServiceTest {
     void shouldThrowConflictWhenEnvelopingExistingAppointment() {
         LocalDateTime baseTime = LocalDateTime.now().plusDays(2).withHour(16).withMinute(0).withSecond(0).withNano(0);
         // Existing: 16:15 - 16:45 (30 min)
-        appointmentService.create(new Appointment(null, vaccinatedDog.getId(), "Dr. House", baseTime.plusMinutes(15), 30, null));
+        appointmentService.create(new Appointment(null, vaccinatedDog, "Dr. House", baseTime.plusMinutes(15), 30, null));
 
         // New: 16:00 - 17:00 (60 min, envelops 16:15-16:45)
-        Appointment enveloping = new Appointment(null, unvaccinatedCat.getId(), "Dr. House", baseTime, 60, null);
+        Appointment enveloping = new Appointment(null, unvaccinatedCat, "Dr. House", baseTime, 60, null);
 
         ConflictException ex = assertThrows(ConflictException.class, () -> appointmentService.create(enveloping));
         assertEquals("Vet is already booked at this time", ex.getMessage());
@@ -248,10 +250,10 @@ class AppointmentServiceTest {
     void shouldThrowConflictOnOneMinuteOverlap() {
         LocalDateTime baseTime = LocalDateTime.now().plusDays(2).withHour(18).withMinute(0).withSecond(0).withNano(0);
         // Existing: 18:00 - 19:00 (60 min)
-        appointmentService.create(new Appointment(null, vaccinatedDog.getId(), "Dr. House", baseTime, 60, null));
+        appointmentService.create(new Appointment(null, vaccinatedDog, "Dr. House", baseTime, 60, null));
 
         // New starts at 18:59 for 30 min (overlaps by 1 minute with 18:00-19:00)
-        Appointment overlapOneMin = new Appointment(null, unvaccinatedCat.getId(), "Dr. House", baseTime.plusMinutes(59), 30, null);
+        Appointment overlapOneMin = new Appointment(null, unvaccinatedCat, "Dr. House", baseTime.plusMinutes(59), 30, null);
 
         ConflictException ex = assertThrows(ConflictException.class, () -> appointmentService.create(overlapOneMin));
         assertEquals("Vet is already booked at this time", ex.getMessage());
@@ -262,15 +264,15 @@ class AppointmentServiceTest {
     void shouldSucceedForBackToBackAppointments() {
         LocalDateTime baseTime = LocalDateTime.now().plusDays(3).withHour(10).withMinute(0).withSecond(0).withNano(0);
         // Appointment 1: 10:00 - 10:30 (30 min)
-        Appointment a1 = appointmentService.create(new Appointment(null, vaccinatedDog.getId(), "Dr. House", baseTime, 30, null));
+        Appointment a1 = appointmentService.create(new Appointment(null, vaccinatedDog, "Dr. House", baseTime, 30, null));
         assertNotNull(a1.getId());
 
         // Appointment 2: 10:30 - 11:00 (exactly at the end of Appointment 1)
-        Appointment a2 = appointmentService.create(new Appointment(null, unvaccinatedCat.getId(), "Dr. House", baseTime.plusMinutes(30), 30, null));
+        Appointment a2 = appointmentService.create(new Appointment(null, unvaccinatedCat, "Dr. House", baseTime.plusMinutes(30), 30, null));
         assertNotNull(a2.getId());
 
         // Appointment 3: 09:30 - 10:00 (ends exactly at the start of Appointment 1)
-        Appointment a3 = appointmentService.create(new Appointment(null, vaccinatedDog.getId(), "Dr. House", baseTime.minusMinutes(30), 30, null));
+        Appointment a3 = appointmentService.create(new Appointment(null, vaccinatedDog, "Dr. House", baseTime.minusMinutes(30), 30, null));
         assertNotNull(a3.getId());
     }
 
@@ -279,11 +281,11 @@ class AppointmentServiceTest {
     void shouldSucceedForDifferentVetsAtSameTime() {
         LocalDateTime baseTime = LocalDateTime.now().plusDays(3).withHour(14).withMinute(0).withSecond(0).withNano(0);
         // Dr. House: 14:00 - 15:00
-        Appointment house = appointmentService.create(new Appointment(null, vaccinatedDog.getId(), "Dr. House", baseTime, 60, null));
+        Appointment house = appointmentService.create(new Appointment(null, vaccinatedDog, "Dr. House", baseTime, 60, null));
         assertNotNull(house.getId());
 
         // Dr. Watson: 14:00 - 15:00 (same time, different doctor)
-        Appointment watson = appointmentService.create(new Appointment(null, unvaccinatedCat.getId(), "Dr. Watson", baseTime, 60, null));
+        Appointment watson = appointmentService.create(new Appointment(null, unvaccinatedCat, "Dr. Watson", baseTime, 60, null));
         assertNotNull(watson.getId());
     }
 
@@ -292,27 +294,25 @@ class AppointmentServiceTest {
     void shouldCheckVetNameCaseInsensitivelyForOverlap() {
         LocalDateTime baseTime = LocalDateTime.now().plusDays(3).withHour(16).withMinute(0).withSecond(0).withNano(0);
         // Booked with "dr. dolittle"
-        appointmentService.create(new Appointment(null, vaccinatedDog.getId(), "dr. dolittle", baseTime, 45, null));
+        appointmentService.create(new Appointment(null, vaccinatedDog, "dr. dolittle", baseTime, 45, null));
 
         // Overlapping booked with "DR. DOLITTLE"
-        Appointment overlap = new Appointment(null, unvaccinatedCat.getId(), "DR. DOLITTLE", baseTime.plusMinutes(15), 30, null);
+        Appointment overlap = new Appointment(null, unvaccinatedCat, "DR. DOLITTLE", baseTime.plusMinutes(15), 30, null);
 
         assertThrows(ConflictException.class, () -> appointmentService.create(overlap));
     }
-
-
 
     @Test
     @DisplayName("complete() should change status from SCHEDULED to COMPLETED")
     void shouldCompleteScheduledAppointment() {
         LocalDateTime baseTime = LocalDateTime.now().plusDays(1).withHour(10).withMinute(0);
         Appointment created = appointmentService.create(
-                new Appointment(null, vaccinatedDog.getId(), "Dr. House", baseTime, 30, null));
+                new Appointment(null, vaccinatedDog, "Dr. House", baseTime, 30, null));
 
-        Appointment completed = appointmentService.complete(created.getId());
+        Appointment completed = appointmentService.complete(created.getId().toString());
         assertEquals(AppointmentStatus.COMPLETED, completed.getStatus());
 
-        Appointment reloaded = appointmentService.get(created.getId());
+        Appointment reloaded = appointmentService.get(created.getId().toString());
         assertEquals(AppointmentStatus.COMPLETED, reloaded.getStatus());
     }
 
@@ -321,25 +321,25 @@ class AppointmentServiceTest {
     void shouldThrowConflictWhenCompletingNonScheduledAppointment() {
         LocalDateTime baseTime = LocalDateTime.now().plusDays(1).withHour(10).withMinute(0);
         Appointment created = appointmentService.create(
-                new Appointment(null, vaccinatedDog.getId(), "Dr. House", baseTime, 30, null));
+                new Appointment(null, vaccinatedDog, "Dr. House", baseTime, 30, null));
 
-        appointmentService.complete(created.getId());
+        appointmentService.complete(created.getId().toString());
 
         // Repeat complete
-        assertThrows(ConflictException.class, () -> appointmentService.complete(created.getId()));
+        assertThrows(ConflictException.class, () -> appointmentService.complete(created.getId().toString()));
 
         // Complete cancelled
         Appointment a2 = appointmentService.create(
-                new Appointment(null, unvaccinatedCat.getId(), "Dr. Watson", baseTime, 30, null));
-        appointmentService.cancel(a2.getId());
+                new Appointment(null, unvaccinatedCat, "Dr. Watson", baseTime, 30, null));
+        appointmentService.cancel(a2.getId().toString());
 
-        assertThrows(ConflictException.class, () -> appointmentService.complete(a2.getId()));
+        assertThrows(ConflictException.class, () -> appointmentService.complete(a2.getId().toString()));
     }
 
     @Test
     @DisplayName("complete() should throw NotFoundException if appointment does not exist")
     void shouldThrowNotFoundWhenCompletingMissingAppointment() {
-        assertThrows(NotFoundException.class, () -> appointmentService.complete("non-existent-id"));
+        assertThrows(NotFoundException.class, () -> appointmentService.complete(UUID.randomUUID().toString()));
     }
 
     @Test
@@ -347,12 +347,12 @@ class AppointmentServiceTest {
     void shouldCancelScheduledAppointment() {
         LocalDateTime baseTime = LocalDateTime.now().plusDays(1).withHour(10).withMinute(0);
         Appointment created = appointmentService.create(
-                new Appointment(null, vaccinatedDog.getId(), "Dr. House", baseTime, 30, null));
+                new Appointment(null, vaccinatedDog, "Dr. House", baseTime, 30, null));
 
-        Appointment cancelled = appointmentService.cancel(created.getId());
+        Appointment cancelled = appointmentService.cancel(created.getId().toString());
         assertEquals(AppointmentStatus.CANCELLED, cancelled.getStatus());
 
-        Appointment reloaded = appointmentService.get(created.getId());
+        Appointment reloaded = appointmentService.get(created.getId().toString());
         assertEquals(AppointmentStatus.CANCELLED, reloaded.getStatus());
     }
 
@@ -361,20 +361,20 @@ class AppointmentServiceTest {
     void shouldThrowConflictWhenCancellingCompletedOrCancelled() {
         LocalDateTime baseTime = LocalDateTime.now().plusDays(1).withHour(10).withMinute(0);
         Appointment created = appointmentService.create(
-                new Appointment(null, vaccinatedDog.getId(), "Dr. House", baseTime, 30, null));
+                new Appointment(null, vaccinatedDog, "Dr. House", baseTime, 30, null));
 
-        appointmentService.cancel(created.getId());
+        appointmentService.cancel(created.getId().toString());
 
         // Repeat cancel
-        ConflictException exCancel = assertThrows(ConflictException.class, () -> appointmentService.cancel(created.getId()));
+        ConflictException exCancel = assertThrows(ConflictException.class, () -> appointmentService.cancel(created.getId().toString()));
         assertEquals("Appointment is already cancelled", exCancel.getMessage());
 
         // Cancel completed
         Appointment a2 = appointmentService.create(
-                new Appointment(null, unvaccinatedCat.getId(), "Dr. Watson", baseTime, 30, null));
-        appointmentService.complete(a2.getId());
+                new Appointment(null, unvaccinatedCat, "Dr. Watson", baseTime, 30, null));
+        appointmentService.complete(a2.getId().toString());
 
-        ConflictException exComplete = assertThrows(ConflictException.class, () -> appointmentService.cancel(a2.getId()));
+        ConflictException exComplete = assertThrows(ConflictException.class, () -> appointmentService.cancel(a2.getId().toString()));
         assertEquals("Cannot cancel a completed appointment", exComplete.getMessage());
     }
 
@@ -383,14 +383,14 @@ class AppointmentServiceTest {
     void shouldAllowRebookingTimeSlotOfCancelledAppointment() {
         LocalDateTime baseTime = LocalDateTime.now().plusDays(2).withHour(11).withMinute(0);
         Appointment initial = appointmentService.create(
-                new Appointment(null, vaccinatedDog.getId(), "Dr. House", baseTime, 60, null));
+                new Appointment(null, vaccinatedDog, "Dr. House", baseTime, 60, null));
 
         // Cancel first appointment
-        appointmentService.cancel(initial.getId());
+        appointmentService.cancel(initial.getId().toString());
 
         // New booking at exact same time with same doctor must succeed
         Appointment rebooked = appointmentService.create(
-                new Appointment(null, unvaccinatedCat.getId(), "Dr. House", baseTime, 60, null));
+                new Appointment(null, unvaccinatedCat, "Dr. House", baseTime, 60, null));
 
         assertNotNull(rebooked.getId());
         assertEquals(AppointmentStatus.SCHEDULED, rebooked.getStatus());
@@ -401,14 +401,14 @@ class AppointmentServiceTest {
     void shouldUpdateAppointmentSuccessfullyWithoutSelfConflict() {
         LocalDateTime baseTime = LocalDateTime.now().plusDays(2).withHour(15).withMinute(0);
         Appointment created = appointmentService.create(
-                new Appointment(null, vaccinatedDog.getId(), "Dr. House", baseTime, 30, null));
+                new Appointment(null, vaccinatedDog, "Dr. House", baseTime, 30, null));
 
         // Update keeping exact same time slot and doctor, changing duration
-        Appointment updateData = new Appointment(null, unvaccinatedCat.getId(), "Dr. House", baseTime, 45, null);
-        Appointment updated = appointmentService.update(created.getId(), updateData);
+        Appointment updateData = new Appointment(null, unvaccinatedCat, "Dr. House", baseTime, 45, null);
+        Appointment updated = appointmentService.update(created.getId().toString(), updateData);
 
         assertEquals(created.getId(), updated.getId());
-        assertEquals(unvaccinatedCat.getId(), updated.getPetId());
+        assertEquals(unvaccinatedCat.getId(), updated.getPet().getId());
         assertEquals(45, updated.getDurationMinutes());
     }
 
@@ -418,13 +418,13 @@ class AppointmentServiceTest {
         LocalDateTime t1 = LocalDateTime.now().plusDays(2).withHour(10).withMinute(0);
         LocalDateTime t2 = LocalDateTime.now().plusDays(2).withHour(11).withMinute(0);
 
-        appointmentService.create(new Appointment(null, vaccinatedDog.getId(), "Dr. House", t1, 60, null));
-        Appointment a2 = appointmentService.create(new Appointment(null, unvaccinatedCat.getId(), "Dr. House", t2, 60, null));
+        appointmentService.create(new Appointment(null, vaccinatedDog, "Dr. House", t1, 60, null));
+        Appointment a2 = appointmentService.create(new Appointment(null, unvaccinatedCat, "Dr. House", t2, 60, null));
 
         // Try to update a2 to overlap with a1 (10:30 - 11:30)
-        Appointment updatedA2 = new Appointment(null, unvaccinatedCat.getId(), "Dr. House", t1.plusMinutes(30), 60, null);
+        Appointment updatedA2 = new Appointment(null, unvaccinatedCat, "Dr. House", t1.plusMinutes(30), 60, null);
 
-        assertThrows(ConflictException.class, () -> appointmentService.update(a2.getId(), updatedA2));
+        assertThrows(ConflictException.class, () -> appointmentService.update(a2.getId().toString(), updatedA2));
     }
 
     @Test
@@ -432,12 +432,12 @@ class AppointmentServiceTest {
     void shouldThrowConflictWhenUpdatingNonScheduledAppointment() {
         LocalDateTime baseTime = LocalDateTime.now().plusDays(2).withHour(10).withMinute(0);
         Appointment created = appointmentService.create(
-                new Appointment(null, vaccinatedDog.getId(), "Dr. House", baseTime, 30, null));
+                new Appointment(null, vaccinatedDog, "Dr. House", baseTime, 30, null));
 
-        appointmentService.complete(created.getId());
+        appointmentService.complete(created.getId().toString());
 
-        Appointment updateData = new Appointment(null, vaccinatedDog.getId(), "Dr. Watson", baseTime, 30, null);
-        assertThrows(ConflictException.class, () -> appointmentService.update(created.getId(), updateData));
+        Appointment updateData = new Appointment(null, vaccinatedDog, "Dr. Watson", baseTime, 30, null);
+        assertThrows(ConflictException.class, () -> appointmentService.update(created.getId().toString(), updateData));
     }
 
     @Test
@@ -445,10 +445,10 @@ class AppointmentServiceTest {
     void shouldThrowConflictWhenUpdatingToUnvaccinatedDog() {
         LocalDateTime baseTime = LocalDateTime.now().plusDays(2).withHour(10).withMinute(0);
         Appointment created = appointmentService.create(
-                new Appointment(null, unvaccinatedCat.getId(), "Dr. House", baseTime, 30, null));
+                new Appointment(null, unvaccinatedCat, "Dr. House", baseTime, 30, null));
 
-        Appointment updateToUnvaccinatedDog = new Appointment(null, unvaccinatedDog.getId(), "Dr. House", baseTime, 30, null);
-        assertThrows(ConflictException.class, () -> appointmentService.update(created.getId(), updateToUnvaccinatedDog));
+        Appointment updateToUnvaccinatedDog = new Appointment(null, unvaccinatedDog, "Dr. House", baseTime, 30, null);
+        assertThrows(ConflictException.class, () -> appointmentService.update(created.getId().toString(), updateToUnvaccinatedDog));
     }
 
     @Test
@@ -456,11 +456,11 @@ class AppointmentServiceTest {
     void shouldDeleteAppointmentOrThrowNotFound() {
         LocalDateTime baseTime = LocalDateTime.now().plusDays(2).withHour(10).withMinute(0);
         Appointment created = appointmentService.create(
-                new Appointment(null, vaccinatedDog.getId(), "Dr. House", baseTime, 30, null));
+                new Appointment(null, vaccinatedDog, "Dr. House", baseTime, 30, null));
 
-        appointmentService.delete(created.getId());
-        assertThrows(NotFoundException.class, () -> appointmentService.get(created.getId()));
+        appointmentService.delete(created.getId().toString());
+        assertThrows(NotFoundException.class, () -> appointmentService.get(created.getId().toString()));
 
-        assertThrows(NotFoundException.class, () -> appointmentService.delete("missing-id"));
+        assertThrows(NotFoundException.class, () -> appointmentService.delete(UUID.randomUUID().toString()));
     }
 }
