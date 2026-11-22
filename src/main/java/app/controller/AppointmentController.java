@@ -38,6 +38,11 @@ public class AppointmentController {
         return appointmentService.list(vetName, appointmentStatus);
     }
 
+    @GetMapping("/detailed")
+    public List<Appointment> listDetailed() {
+        return appointmentService.listDetailed();
+    }
+
     @GetMapping("/{id}")
     public Appointment get(@PathVariable String id) {
         return appointmentService.get(id);
