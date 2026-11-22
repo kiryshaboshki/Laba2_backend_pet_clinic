@@ -40,16 +40,25 @@ public class Appointment {
     @Column(nullable = false)
     private AppointmentStatus status;
 
+    @Column(name = "notes")
+    private String notes;
+
     public Appointment() {}
 
     public Appointment(UUID id, Pet pet, String vetName, LocalDateTime dateTime,
                        int durationMinutes, AppointmentStatus status) {
+        this(id, pet, vetName, dateTime, durationMinutes, status, null);
+    }
+
+    public Appointment(UUID id, Pet pet, String vetName, LocalDateTime dateTime,
+                       int durationMinutes, AppointmentStatus status, String notes) {
         this.id = id;
         this.pet = pet;
         this.vetName = vetName;
         this.dateTime = dateTime;
         this.durationMinutes = durationMinutes;
         this.status = status;
+        this.notes = notes;
     }
 
     public UUID getId() { return id; }
@@ -69,4 +78,7 @@ public class Appointment {
 
     public AppointmentStatus getStatus() { return status; }
     public void setStatus(AppointmentStatus status) { this.status = status; }
+
+    public String getNotes() { return notes; }
+    public void setNotes(String notes) { this.notes = notes; }
 }

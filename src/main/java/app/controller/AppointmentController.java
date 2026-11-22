@@ -74,7 +74,8 @@ public class AppointmentController {
             String petId,
             String vetName,
             LocalDateTime dateTime,
-            int durationMinutes
+            int durationMinutes,
+            String notes
     ) {
         Appointment toAppointment() {
             if (petId == null || petId.isBlank()) {
@@ -87,6 +88,7 @@ public class AppointmentController {
             appointment.setVetName(vetName);
             appointment.setDateTime(dateTime);
             appointment.setDurationMinutes(durationMinutes);
+            appointment.setNotes(notes);
             return appointment;
         }
     }

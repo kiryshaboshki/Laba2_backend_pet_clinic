@@ -59,6 +59,7 @@ public class AppointmentService {
         existing.setVetName(updated.getVetName());
         existing.setDateTime(updated.getDateTime());
         existing.setDurationMinutes(updated.getDurationMinutes());
+        existing.setNotes(updated.getNotes());
 
         return appointmentRepository.save(existing);
     }

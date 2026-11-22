@@ -403,13 +403,14 @@ class AppointmentServiceTest {
         Appointment created = appointmentService.create(
                 new Appointment(null, vaccinatedDog, "Dr. House", baseTime, 30, null));
 
-        // Update keeping exact same time slot and doctor, changing duration
-        Appointment updateData = new Appointment(null, unvaccinatedCat, "Dr. House", baseTime, 45, null);
+        // Update keeping exact same time slot and doctor, changing duration and notes
+        Appointment updateData = new Appointment(null, unvaccinatedCat, "Dr. House", baseTime, 45, null, "Prescribed vitamins");
         Appointment updated = appointmentService.update(created.getId().toString(), updateData);
 
         assertEquals(created.getId(), updated.getId());
         assertEquals(unvaccinatedCat.getId(), updated.getPet().getId());
         assertEquals(45, updated.getDurationMinutes());
+        assertEquals("Prescribed vitamins", updated.getNotes());
     }
 
     @Test
