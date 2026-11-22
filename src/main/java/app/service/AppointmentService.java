@@ -33,6 +33,10 @@ public class AppointmentService {
                 .toList();
     }
 
+    public List<Appointment> listDetailed() {
+        return appointmentRepository.findAllWithPet();
+    }
+
     public Appointment get(String id) {
         return appointmentRepository.findById(parseId(id))
                 .orElseThrow(() -> new NotFoundException("Appointment not found: " + id));
@@ -125,7 +129,7 @@ public class AppointmentService {
         LocalDateTime newEnd = newStart.plusMinutes(appointment.getDurationMinutes());
 
         for (Appointment existing : appointmentRepository.findAll()) {
-            if (existing.getStatus() == AppointmentStatus.CANCELLED) continue;
+            if (existing.getStatus() != AppointmentStatus.SCHEDULED) continue;
             if (existing.getId() != null && existing.getId().equals(currentId)) continue;
 
             if (existing.getVetName().equalsIgnoreCase(appointment.getVetName())) {

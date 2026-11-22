@@ -46,4 +46,13 @@ public class PetController {
     public void delete(@PathVariable String id) {
         petService.delete(id);
     }
+
+    @PostMapping("/{id}/transfer")
+    public Pet transferOwnership(
+            @PathVariable String id,
+            @RequestBody TransferRequest request) {
+        return petService.transferOwnership(id, request.newOwnerName());
+    }
+
+    public record TransferRequest(String newOwnerName) {}
 }

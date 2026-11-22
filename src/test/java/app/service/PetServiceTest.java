@@ -227,4 +227,53 @@ class PetServiceTest {
         assertTrue(appointmentRepository.findById(savedCancelled.getId()).isEmpty(),
                 "Cancelled appointment should be cascade removed upon pet deletion");
     }
+
+    @Test
+    @DisplayName("transferOwnership() should update pet owner and cancel scheduled appointments with note")
+    void shouldTransferOwnershipAndCancelScheduledAppointments() {
+        Pet pet = petService.create(new Pet(null, "Barsik", PetType.CAT, "Ivan", true));
+
+        Appointment scheduled1 = appointmentRepository.save(new Appointment(null, pet, "Dr. House",
+                LocalDateTime.now().plusDays(1), 30, AppointmentStatus.SCHEDULED));
+        Appointment scheduled2 = appointmentRepository.save(new Appointment(null, pet, "Dr. Watson",
+                LocalDateTime.now().plusDays(2), 30, AppointmentStatus.SCHEDULED));
+        Appointment completed = appointmentRepository.save(new Appointment(null, pet, "Dr. House",
+                LocalDateTime.now().minusDays(1), 30, AppointmentStatus.COMPLETED));
+
+        Pet transferred = petService.transferOwnership(pet.getId().toString(), "Sergey");
+
+        assertEquals("Sergey", transferred.getOwnerName());
+        assertEquals("Sergey", petService.get(pet.getId().toString()).getOwnerName());
+
+        Appointment updated1 = appointmentRepository.findById(scheduled1.getId()).orElseThrow();
+        assertEquals(AppointmentStatus.CANCELLED, updated1.getStatus());
+        assertTrue(updated1.getNotes().contains("Sergey"));
+
+        Appointment updated2 = appointmentRepository.findById(scheduled2.getId()).orElseThrow();
+        assertEquals(AppointmentStatus.CANCELLED, updated2.getStatus());
+        assertTrue(updated2.getNotes().contains("Sergey"));
+
+        Appointment remainingCompleted = appointmentRepository.findById(completed.getId()).orElseThrow();
+        assertEquals(AppointmentStatus.COMPLETED, remainingCompleted.getStatus());
+    }
+
+    @Test
+    @DisplayName("transferOwnership() should throw BadRequestException when new owner is blank")
+    void shouldThrowWhenNewOwnerIsBlank() {
+        Pet pet = petService.create(new Pet(null, "Barsik", PetType.CAT, "Ivan", true));
+
+        assertThrows(BadRequestException.class,
+                () -> petService.transferOwnership(pet.getId().toString(), null));
+        assertThrows(BadRequestException.class,
+                () -> petService.transferOwnership(pet.getId().toString(), "   "));
+    }
+
+    @Test
+    @DisplayName("transferOwnership() should throw ConflictException when trigger-error is passed")
+    void shouldThrowConflictWhenTriggerErrorPassed() {
+        Pet pet = petService.create(new Pet(null, "Barsik", PetType.CAT, "Ivan", true));
+
+        assertThrows(ConflictException.class,
+                () -> petService.transferOwnership(pet.getId().toString(), "trigger-error"));
+    }
 }

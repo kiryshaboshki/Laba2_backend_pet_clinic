@@ -397,6 +397,24 @@ class AppointmentServiceTest {
     }
 
     @Test
+    @DisplayName("complete() should free up doctor's time slot for rebooking")
+    void shouldAllowRebookingTimeSlotOfCompletedAppointment() {
+        LocalDateTime baseTime = LocalDateTime.now().plusDays(2).withHour(11).withMinute(0);
+        Appointment initial = appointmentService.create(
+                new Appointment(null, vaccinatedDog, "Dr. House", baseTime, 60, null));
+
+        // Complete first appointment
+        appointmentService.complete(initial.getId().toString());
+
+        // New booking at exact same time with same doctor must succeed
+        Appointment rebooked = appointmentService.create(
+                new Appointment(null, unvaccinatedCat, "Dr. House", baseTime, 60, null));
+
+        assertNotNull(rebooked.getId());
+        assertEquals(AppointmentStatus.SCHEDULED, rebooked.getStatus());
+    }
+
+    @Test
     @DisplayName("update() should update appointment details without conflicting with itself")
     void shouldUpdateAppointmentSuccessfullyWithoutSelfConflict() {
         LocalDateTime baseTime = LocalDateTime.now().plusDays(2).withHour(15).withMinute(0);

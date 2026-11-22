@@ -66,6 +66,34 @@ public class PetService {
     }
 
     @Transactional
+    public Pet transferOwnership(String id, String newOwnerName) {
+        if (newOwnerName == null || newOwnerName.isBlank()) {
+            throw new BadRequestException("New owner name must not be empty");
+        }
+
+        Pet pet = get(id);
+        String oldOwner = pet.getOwnerName();
+        pet.setOwnerName(newOwnerName.trim());
+        petRepository.save(pet);
+
+        List<Appointment> scheduled = appointmentRepository.findByPet_Id(pet.getId()).stream()
+                .filter(a -> a.getStatus() == AppointmentStatus.SCHEDULED)
+                .toList();
+
+        for (Appointment appointment : scheduled) {
+            appointment.setStatus(AppointmentStatus.CANCELLED);
+            appointment.setNotes("Cancelled due to ownership transfer from " + oldOwner + " to " + newOwnerName.trim());
+            appointmentRepository.save(appointment);
+        }
+
+        if ("trigger-error".equalsIgnoreCase(newOwnerName.trim())) {
+            throw new ConflictException("Simulated error for transaction rollback verification");
+        }
+
+        return pet;
+    }
+
+    @Transactional
     public void delete(String id) {
         Pet pet = get(id);
         boolean hasScheduled = appointmentRepository.existsByPet_IdAndStatus(pet.getId(), AppointmentStatus.SCHEDULED);
