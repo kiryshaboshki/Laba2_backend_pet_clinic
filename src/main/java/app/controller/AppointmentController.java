@@ -4,6 +4,7 @@ import app.domain.Appointment;
 import app.domain.AppointmentStatus;
 import app.domain.Pet;
 import app.exception.BadRequestException;
+import app.exception.NotFoundException;
 import app.service.AppointmentService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -86,8 +87,14 @@ public class AppointmentController {
             if (petId == null || petId.isBlank()) {
                 throw new BadRequestException("Pet ID must not be empty");
             }
+            UUID parsedPetId;
+            try {
+                parsedPetId = UUID.fromString(petId);
+            } catch (IllegalArgumentException e) {
+                throw new NotFoundException("Pet not found: " + petId);
+            }
             Pet pet = new Pet();
-            pet.setId(UUID.fromString(petId));
+            pet.setId(parsedPetId);
             Appointment appointment = new Appointment();
             appointment.setPet(pet);
             appointment.setVetName(vetName);

@@ -28,7 +28,7 @@ public class AppointmentService {
 
     public List<Appointment> list(String vetName, AppointmentStatus status) {
         return appointmentRepository.findAll().stream()
-                .filter(a -> vetName == null || a.getVetName().equalsIgnoreCase(vetName))
+                .filter(a -> vetName == null || vetName.isBlank() || a.getVetName().equalsIgnoreCase(vetName.trim()))
                 .filter(a -> status == null || a.getStatus() == status)
                 .toList();
     }
@@ -112,6 +112,7 @@ public class AppointmentService {
 
         Pet pet = petRepository.findById(appointment.getPet().getId())
                 .orElseThrow(() -> new NotFoundException("Pet not found: " + appointment.getPet().getId()));
+        appointment.setPet(pet);
 
         if (pet.getType().isVaccinationRequired() && !pet.isVaccinated()) {
             throw new ConflictException("Dog must be vaccinated before appointment");

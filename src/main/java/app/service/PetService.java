@@ -27,7 +27,7 @@ public class PetService {
 
     public List<Pet> list(String type, Boolean vaccinated) {
         return petRepository.findAll().stream()
-                .filter(p -> type == null || p.getType().name().equalsIgnoreCase(type))
+                .filter(p -> type == null || type.isBlank() || p.getType().name().equalsIgnoreCase(type.trim()))
                 .filter(p -> vaccinated == null || p.isVaccinated() == vaccinated)
                 .toList();
     }

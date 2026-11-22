@@ -31,8 +31,7 @@ public class InMemoryAppointmentRepository {
                         UUID id = (UUID) args[0];
                         yield Optional.ofNullable(storage.get(id));
                     }
-                    case "findAll" -> new ArrayList<>(storage.values());
-                    case "findAllWithPet" -> new ArrayList<>(storage.values());
+                    case "findAll", "findAllWithPet" -> new ArrayList<>(storage.values());
                     case "delete" -> {
                         Appointment appointment = (Appointment) args[0];
                         if (appointment != null && appointment.getId() != null) {
